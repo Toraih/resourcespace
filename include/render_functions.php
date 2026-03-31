@@ -4137,55 +4137,60 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
             <?php
             foreach($scriptconditions as $scriptcondition)
                 {
-                /* Example of $scriptconditions:
-                    [{"field":"73","type":"3","display_as_dropdown":"0","valid":["267","266"]}]
-                */
-                ?>
-
-                field<?php echo $field['ref']; ?>valuefound = false;
-                fieldokvalues<?php echo $scriptcondition['field']; ?> = <?php echo json_encode($scriptcondition['valid']); ?>;
-                console.debug('[checkDisplayCondition<?php echo $field["ref"]; ?>] fieldokvalues<?php echo $scriptcondition['field']; ?> = %o', fieldokvalues<?php echo $scriptcondition['field']; ?>);
-
-                <?php
-                ############################
-                ### Field type specific
-                ############################
-                if(in_array($scriptcondition['type'], $FIXED_LIST_FIELD_TYPES))
-                    {
-                    $jquery_condition_selector = "input[name=\"nodes[{$scriptcondition['field']}][]\"]";
-                    $js_conditional_statement  = "fieldokvalues{$scriptcondition['field']}.indexOf(element.value) != -1";
-
-                    if(FIELD_TYPE_CHECK_BOX_LIST == $scriptcondition['type'])
-                        {
-                        $js_conditional_statement = "element.checked && {$js_conditional_statement}";
-                        }
-
-                    if(FIELD_TYPE_DROP_DOWN_LIST == $scriptcondition['type'])
-                        {
-                        $jquery_condition_selector = "select[name=\"nodes[{$scriptcondition['field']}]\"] option:selected";
-                        }
-
-                    if(FIELD_TYPE_RADIO_BUTTONS == $scriptcondition['type'])
-                        {
-                        $jquery_condition_selector = "input[name=\"nodes[{$scriptcondition['field']}]\"]:checked";
-                        }
+                if(is_field_displayed(get_field($scriptcondition['field']))) {
+                    /* Example of $scriptconditions:
+                        [{"field":"73","type":"3","display_as_dropdown":"0","valid":["267","266"]}]
+                    */
                     ?>
-                        jQuery('<?php echo $jquery_condition_selector; ?>').each(function(index, element)
-                            {
-                            if(<?php echo $js_conditional_statement; ?>)
-                                {
-                                field<?php echo $field['ref']; ?>valuefound = true;
-                                }
-                            });
+
+                    field<?php echo $field['ref']; ?>valuefound = false;
+                    fieldokvalues<?php echo $scriptcondition['field']; ?> = <?php echo json_encode($scriptcondition['valid']); ?>;
+                    console.debug('[checkDisplayCondition<?php echo $field["ref"]; ?>] fieldokvalues<?php echo $scriptcondition['field']; ?> = %o', fieldokvalues<?php echo $scriptcondition['field']; ?>);
 
                     <?php
+                    ############################
+                    ### Field type specific
+                    ############################
+                    if(in_array($scriptcondition['type'], $FIXED_LIST_FIELD_TYPES))
+                        {
+                        $jquery_condition_selector = "input[name=\"nodes[{$scriptcondition['field']}][]\"]";
+                        $js_conditional_statement  = "fieldokvalues{$scriptcondition['field']}.indexOf(element.value) != -1";
+
+                        if(FIELD_TYPE_CHECK_BOX_LIST == $scriptcondition['type'])
+                            {
+                            $js_conditional_statement = "element.checked && {$js_conditional_statement}";
+                            }
+
+                        if(FIELD_TYPE_DROP_DOWN_LIST == $scriptcondition['type'])
+                            {
+                            $jquery_condition_selector = "select[name=\"nodes[{$scriptcondition['field']}]\"] option:selected";
+                            }
+
+                        if(FIELD_TYPE_RADIO_BUTTONS == $scriptcondition['type'])
+                            {
+                            $jquery_condition_selector = "input[name=\"nodes[{$scriptcondition['field']}]\"]:checked";
+                            }
+                        ?>
+                            jQuery('<?php echo $jquery_condition_selector; ?>').each(function(index, element)
+                                {
+                                if(<?php echo $js_conditional_statement; ?>)
+                                    {
+                                    field<?php echo $field['ref']; ?>valuefound = true;
+                                    }
+                                });
+
+                        <?php
+                        }
+                    ?>
+                    if(!field<?php echo $field['ref']; ?>valuefound)
+                        {
+                        field<?php echo $field['ref']; ?>visibility = false;
+                        }
+    <?php
+                    } else {
+                        $current_nodes = get_resource_nodes($resource_ref, $scriptcondition['field'], false);
+                        echo count(array_intersect($current_nodes, $scriptcondition['valid'])) > 0 ? '' : "field{$field['ref']}visibility = false;";
                     }
-                ?>
-                if(!field<?php echo $field['ref']; ?>valuefound)
-                    {
-                    field<?php echo $field['ref']; ?>visibility = false;
-                    }
-<?php
                 }
                 ?>
 
@@ -6166,6 +6171,38 @@ function render_fixed_text_question(string $label, string $text, string $helptex
 function escape(string $unsafe): string
 {
     return htmlspecialchars($unsafe, ENT_QUOTES | ENT_SUBSTITUTE);
+}
+
+/**
+ * Output encoding for Javascript (JS) context. Allows PHP code to embed data as a JS value by producing a JS-compatible
+ * literal for the common JSON types.
+ * IMPORTANT: encoding failures result in NULL. 
+ *
+ * @example echo 'const x = ' . encode_js_value($value) . ';';
+ * @see https://www.resourcespace.com/knowledge-base/developers/security/injection
+ */
+function encode_js_value(mixed $unsafe): string
+{
+    $use_error_exception_cache = $GLOBALS['use_error_exception'] ?? false;
+    $GLOBALS['use_error_exception'] = true;
+    try {
+        $encoded_val = json_encode(
+            $unsafe,
+            JSON_HEX_TAG
+            | JSON_HEX_AMP
+            | JSON_HEX_QUOT
+            | JSON_HEX_APOS
+            | JSON_UNESCAPED_SLASHES
+            | JSON_INVALID_UTF8_SUBSTITUTE
+            | JSON_THROW_ON_ERROR
+        );
+    } catch (\JsonException $e) {
+        debug("Failed to encode value for JS context. Reason: {$e}");
+        $encoded_val = 'null';
+    }
+    $GLOBALS['use_error_exception'] = $use_error_exception_cache;
+
+    return $encoded_val;
 }
 
 
