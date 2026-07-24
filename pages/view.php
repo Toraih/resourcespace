@@ -1269,7 +1269,7 @@ if ($k!="" && !$internal_share_access) {$edit_access=0;}
                                                 ) { ?>
                                                     <li>
                                                         <a id="view_replace_link" href="<?php echo generateURL($baseurl_short . "pages/upload_" . $replace_upload_type . ".php", $urlparams, array("replace_resource"=>$ref, "resource_type"=>$resource['resource_type'])); ?>" 
-                                                            onClick="if(jQuery('#uploader').length){return CentralSpaceLoad(this,true);} else {return ModalLoad(this,true);}">
+                                                            onClick="return CentralSpaceLoad(this,true);">
                                                             <?php if ($resource["file_extension"] != "")
                                                                 { ?>
                                                                 <i class='icon-replace '></i>&nbsp;<?php echo escape($lang["replacefile"]);
@@ -1440,7 +1440,7 @@ foreach ($pushed as $pushed_resource)
 
 function RenderPushedMetadata($resource, $field_data, $all_field_data)
     {
-    global $k,$view_title_field,$lang, $internal_share_access, $fields_all, $fields, $ref, $access, $userpermissions, $upload_then_edit, $urlparams;
+    global $k,$view_title_field,$lang, $internal_share_access, $fields_all, $fields, $ref, $access, $userpermissions, $upload_then_edit, $urlparams, $baseurl;
     // Save currentt resource data
     $reset_ref          = $ref;
     $reset_access       = $access;
@@ -1461,7 +1461,7 @@ function RenderPushedMetadata($resource, $field_data, $all_field_data)
     ?>
     <div class="RecordBox PushedRecordBox">
         <div class="RecordPanel PushedRecordPanel">
-            <div class="backtoresults">&gt;<a href="view.php?ref=<?php echo $ref ?>" onClick="return CentralSpaceLoad(this,true);"><?php echo escape($lang["view"]); ?></a>
+            <div class="backtoresults">&gt;<a href="<?php echo $baseurl ?>/pages/view.php?ref=<?php echo $ref ?>" onClick="return CentralSpaceLoad(this,true);"><?php echo escape($lang["view"]); ?></a>
         </div>
         <div class="Title"><?php echo i18n_get_translated($resource["resource_type_name"]) . " : " . $resource["field" . $view_title_field] ?></div>
             <?php
@@ -1566,7 +1566,6 @@ if ($view_resource_collections && !checkperm('b')){ ?>
     ?>); 
     </script>
     <?php }
-
 if ($metadata_report && isset($exiftool_path) && ($k=="" || $internal_share_access))
     {
     ?>
@@ -1785,4 +1784,5 @@ function updateDownloadLink(ns, selected_size, picker)
         window.location='#Header';
     }); 
 </script>
+
 <?php include "../include/footer.php";

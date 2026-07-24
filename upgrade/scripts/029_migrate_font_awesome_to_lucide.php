@@ -691,15 +691,17 @@ foreach ($resource_types as $resource_type) {
 }
 
 // Convert workflow states
-$workflow_states = ps_query("SELECT ref, name, icon FROM archive_states WHERE icon IS NOT NULL");
-foreach ($workflow_states as $workflow_state) {
-    $icon_name = substr($workflow_state["icon"], strrpos($workflow_state["icon"], ' ') + 1);
+if (is_plugin_activated('rse_workflow')) {
+    $workflow_states = ps_query("SELECT ref, name, icon FROM archive_states WHERE icon IS NOT NULL");
+    foreach ($workflow_states as $workflow_state) {
+        $icon_name = substr($workflow_state["icon"], strrpos($workflow_state["icon"], ' ') + 1);
 
-    if (array_key_exists($icon_name, $font_awesome_lucide_mapping)) {
-        logScript("Mapping Font Awesome icon " . $icon_name . " for workflow state " . $workflow_state["ref"] . " - " . $workflow_state["name"] . " to Lucide icon " . $font_awesome_lucide_mapping[$icon_name]);
-        ps_query("UPDATE archive_states SET icon = ? WHERE ref = ?", ["s", $font_awesome_lucide_mapping[$icon_name], "i", $workflow_state["ref"]]);
-    } else {
-        logScript("No suitable Lucide icon found for Font Awesome icon " . $workflow_state["icon"] . " for workflow state " . $workflow_state["ref"] . " - " . $workflow_state["name"]);
+        if (array_key_exists($icon_name, $font_awesome_lucide_mapping)) {
+            logScript("Mapping Font Awesome icon " . $icon_name . " for workflow state " . $workflow_state["ref"] . " - " . $workflow_state["name"] . " to Lucide icon " . $font_awesome_lucide_mapping[$icon_name]);
+            ps_query("UPDATE archive_states SET icon = ? WHERE ref = ?", ["s", $font_awesome_lucide_mapping[$icon_name], "i", $workflow_state["ref"]]);
+        } else {
+            logScript("No suitable Lucide icon found for Font Awesome icon " . $workflow_state["icon"] . " for workflow state " . $workflow_state["ref"] . " - " . $workflow_state["name"]);
+        }
     }
 }
 

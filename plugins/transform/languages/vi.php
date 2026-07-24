@@ -81,3 +81,7 @@ $lang["cropper_preset_sizes"] = 'Kích thước đã định sẵn';
 $lang["page-title_transform_collection_transform"] = 'Chuyển đổi Tài nguyên';
 $lang["page-title_transform_crop"] = 'Cắt tài nguyên';
 $lang["page-title_transform_setup"] = 'Cài đặt Plugin Chuyển đổi';
+$lang["use_filename_as_title"] = 'Sử dụng tên tệp làm tiêu đề';
+
+$lang["error-resolution-zero"] = 'Lỗi: Hình ảnh gốc có chiều rộng / chiều cao tính toán bằng không.';
+$lang["error-preview-missing"] = 'Lỗi: Không thể tìm thấy hình xem trước';

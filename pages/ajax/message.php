@@ -129,14 +129,12 @@ if (basename(__FILE__) == basename($_SERVER['PHP_SELF'])) {
     }
 
     if ($offline_job_queue) {
-        $userfailedjobs = count(job_queue_get_jobs("", STATUS_ERROR, (checkperm('a') ? 0 : $userref)));
+        $userfailedjobs = count(job_queue_get_jobs("", STATUS_ERROR, $userref));
         $allfailedjobs  = count(job_queue_get_jobs("", STATUS_ERROR));
         $jobcounts      = [];
 
-        if ($userfailedjobs > 0) {
+        if ($userfailedjobs > 0 || $allfailedjobs > 0) {
             $jobcounts['user'] = $userfailedjobs;
-        }
-        if ($allfailedjobs > 0) {
             $jobcounts['all'] = $allfailedjobs;
         }
 
@@ -275,7 +273,6 @@ if (basename(__FILE__) == basename($_SERVER['PHP_SELF'])) {
                         } else {
                             actioncountlabel = actioncount.toString();
                         }
-                        console.log(actioncount);
                         jQuery('span.ActionCountPill').html(DOMPurify.sanitize(actioncountlabel)).fadeIn();
                     } else {
                         jQuery('span.ActionCountPill').hide();

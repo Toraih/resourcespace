@@ -182,7 +182,15 @@ if ($use_selection_collection && in_array($ref, $selection_collection_resources)
                     >
                     <?php
                 } //end link
-                echo escape(tidy_trim(TidyList(i18n_get_translated($value)), $resolved_title_trim));
+                if (isset($df[$x]['type']) && $df[$x]['type'] == FIELD_TYPE_TEXT_BOX_FORMATTED_AND_TINYMCE) {
+                    $displayed_value = strip_tags($value);
+                    if (strlen($displayed_value) > $resolved_title_trim) {
+                        $value = str_replace(($displayed_value), tidy_trim(($displayed_value), $resolved_title_trim), $value);
+                    }
+                    echo strip_tags_and_attributes(TidyList(i18n_get_translated($value)));
+                } else {
+                    echo escape(tidy_trim(TidyList(i18n_get_translated($value)), $resolved_title_trim));
+                }
                 if ($x == 0) { // add link if necessary ?>
                     </a>
                     <?php
@@ -200,7 +208,10 @@ if ($use_selection_collection && in_array($ref, $selection_collection_resources)
                 <?php
                 if ($display_resource_id_in_thumbnail && $ref > 0) {
                 ?>
-                    <span class="resource-card-pill resource-card-id"># <?php echo escape($ref); ?></span>
+                <div class="resource-card-pill resource-card-id">
+                    <span># <?php echo escape($ref); ?></span>
+                </div>
+
                 <?php } 
                 
                 if ($thumbs_display_archive_state) {
@@ -227,10 +238,10 @@ if ($use_selection_collection && in_array($ref, $selection_collection_resources)
                     $icon = $workflowicons[$result[$n]['archive']] ?? (WORKFLOW_DEFAULT_ICONS[$result[$n]['archive']] ?? WORKFLOW_DEFAULT_ICON);
                     $workflow_html = "<i class='icon-" . escape($icon) . "'></i>";
                 ?>
-                    <span class="resource-card-pill resource-card-status <?php echo escape($status_css); ?>">
+                    <div class="resource-card-pill resource-card-status <?php echo escape($status_css); ?>">
                         <?php echo $workflow_html; ?>
-                        <?php echo isset($lang["status" . $result[$n]['archive']]) ? (escape($lang["status" . $result[$n]['archive']])) : ($lang["status"] . "&nbsp;" . $result[$n]['archive']); ?>
-                    </span>
+                        <span><?php echo isset($lang["status" . $result[$n]['archive']]) ? (escape($lang["status" . $result[$n]['archive']])) : (escape($lang["status"] . "&nbsp;" . $result[$n]['archive'])); ?></span>
+                    </div>
                 <?php
                 }
                 if (isset($show_annotation_count) && $show_annotation_count) {
@@ -238,7 +249,10 @@ if ($use_selection_collection && in_array($ref, $selection_collection_resources)
 
                     if ($annotations_count > 0) {
                         ?>
-                        <span class="resource-card-pill resource-card-annotations"><i class="icon-captions"></i><?php echo (int) $annotations_count; ?></span>
+                        <div class="resource-card-pill resource-card-annotations">
+                            <i class="icon-captions"></i>
+                            <span><?php echo (int) $annotations_count; ?></span>
+                        </div>
                         <?php
                     }
                     

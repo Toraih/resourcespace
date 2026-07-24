@@ -83,3 +83,7 @@ $lang["cropper_preset_sizes"] = 'Önceden tanımlanmış boyutlar';
 $lang["page-title_transform_collection_transform"] = 'Kaynağı Dönüştür';
 $lang["page-title_transform_crop"] = 'Kırpma Kaynağı';
 $lang["page-title_transform_setup"] = 'Dönüşüm Eklentisini Ayarla';
+$lang["use_filename_as_title"] = 'Başlık olarak dosya adını kullan';
+
+$lang["error-resolution-zero"] = 'Hata: Orijinal resmin genişliği/yüksekliği sıfır olarak hesaplandı.';
+$lang["error-preview-missing"] = 'Hata: Önizleme resmi bulunamadı';

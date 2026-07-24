@@ -98,8 +98,9 @@ $query_cache_enabled = true;
 // Query cache time in minutes. How long before the disk cache is refreshed for a given result set. Should not be necessary to change this.
 $query_cache_expires_minutes = 30;
 
-// The level of PHP error reporting to use. By default, hide warnings.
-$config_error_reporting = E_ALL & ~E_DEPRECATED;
+// The level of PHP error reporting to use. By default report all errors, warnings, and notices except deprecation warnings 
+// (both PHP's built-in deprecation notices and user-triggered deprecation notices).
+$config_error_reporting = E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED;
 
 // Enable work-arounds required when installed on Microsoft Windows systems
 $config_windows = false;
@@ -180,12 +181,6 @@ $originals_separate_storage = false;
 $applicationname = "ResourceSpace"; // The name of your implementation / installation (e.g. 'MyCompany Resource System')
 $header_favicon = "gfx/interface/favicon.png";
 
-// Is the logo a link to the home page?
-$header_link = true;
-
-// Header includes username to right of user menu icon
-$header_include_username = false;
-
 // Custom source location for the header image (includes baseurl, requires leading "/"). Will default to the resourcespace logo if left blank. Recommended image size: 350px(X) x 80px(Y)
 $linkedheaderimgsrc = "";
 
@@ -195,19 +190,8 @@ $linkedheaderimgsrc_dark = "";
 // Change the Header Logo link to another address by uncommenting and setting the variable below
 // $header_link_url=http://my-alternative-header-link
 
-// Used for specifying custom colours for header
-$header_colour_style_override = '';
-$header_link_style_override = '';
-
-// Used for specifying custom colours for home page elements (site text, dash tiles, simple search)
-$home_colour_style_override = '';
-
-// Used for specifying custom colours for collection bar elements
-$collection_bar_background_override = '';
-$collection_bar_foreground_override = '';
-
-// Used for changing colour of default blue buttons
-$button_colour_override = '';
+// UI colour theme - available options are "blue", "green", "red" and "purple". 
+$colour_theme = "blue";
 
 // Used by system settings page when setting a custom system font
 $custom_font = '';
@@ -250,7 +234,7 @@ $home_dash = true;
 // Define the available styles per type.
 $tile_styles['srch']  = array('thmbs', 'multi', 'blank');
 $tile_styles['ftxt']  = array('ftxt');
-$tile_styles['conf']  = array('blank', 'analytics','thmsl','custm','pend');
+$tile_styles['conf']  = array('blank', 'analytics','thmsl','custm','pend', 'upld');
 $tile_styles['fcthm'] = array('thmbs', 'multi', 'blank');
 
 // All user permissions for the dash are revoked and the dash admin can manage a single dash for all users.
@@ -577,9 +561,6 @@ $resourceid_simple_search = false;
 // Enable date option on simple search bar
 $simple_search_date = true;
 
-// Show "Powered by ResourceSpace" on simple search bar when default $linkedheaderimgsrc not used
-$show_powered_by_logo = true;
-
 // Enable sorting resources in other ways:
 $colour_sort = true;
 $popularity_sort = true;
@@ -606,8 +587,7 @@ $use_recent_as_home = false;
 
 // Show images along with theme category headers (image selected is the most popular within the theme category)
 $theme_images = true;
-$theme_images_number = 6; // How many to auto-select (if none chosen manually). Smart FCs only display one.
-$show_theme_collection_stats = false; // Show count of themes and resources in category. $themes_simple_view=false only.
+$show_theme_collection_stats = false; // Show count of themes and resources in category.
 
 // Theme direct jump mode
 // If set, sub category levels DO NOT appear and must be directly linked to using custom home panels or top navigation items (or similar).
@@ -657,9 +637,6 @@ $mycollections_link = false;
 // Display a 'My Requests' link in the top navigation
 $myrequests_link = false;
 
-// Display a 'Research Request' link in the top navigation
-$research_link = true;
-
 // Display a Themes link in Top Navigation if Themes is enabled
 $themes_navlink = true;
 
@@ -675,11 +652,15 @@ $terms_upload = false;
 // Require terms on first login?
 $terms_login = false;
 
-//  Thumbnails options
+// Controls how the collection bar should be displayed ("hide" is better if collections are not going to be heavily used).
+// Will be overriden by local value stored in cookie, or via user preferences/group config override being set
+// Can be:
+//     show - full display, the default option
+//     actions - minimized bar showing selector for collections and actions
+//     hide - show collection button only
+$thumbs_default = "hide";
 
-// In the collection frame, show or hide thumbnails by default? ("hide" is better if collections are not going to be heavily used).
-$thumbs_default = "show";
-//  Automatically show thumbs when you change collection (only if default is show)
+// Automatically show thumbs when selecting a collection from My Requests (only if thumbs_default is show)
 $autoshow_thumbs = false;
 
 // Show an Empty Collection link which will empty the collection of resources (not delete them)
@@ -708,7 +689,7 @@ $orderbyrating = false;
 $collection_download = false;
 
 // The total size, in bytes, of the collection download possible PRIOR to zipping. Prevents users attempting very large downloads.
-$collection_download_max_size = 1024 * 1024 * 1024; // default 1GB.
+$collection_download_max_size = 1024 * 1024 * 1024 * 10; // default 10GB.
 
 // Example given for Linux with the zip utility:
 // $collection_download_settings[0]["name"] = 'ZIP';
@@ -922,15 +903,8 @@ $watermark_open_search = false;
 // Set to 'true' to make the simple search bar more basic, with just the single search box.
 $basic_simple_search = false;
 
-// include an "all" toggle checkbox for Resource Types in Search bar
-$searchbar_selectall = false;
-
 // Hide the resource type selector on the simple search and advanced search pages
 $hide_search_resource_types = false;
-
-/*Display keywords as pills on Simple Search. Use tab to create new tags/ pills
-Note: full text strings are also accepted as a pill*/
-$simple_search_pills_view = false;
 
 // Custom top navigation links.
 // You can add as many panels as you like. They must be numbered sequentially starting from zero (0,1,2,3 etc.)
@@ -1443,11 +1417,11 @@ $thumbs_display_fields = array(8); // ** SEE NOTE (1)
 // array of defined thumbs_display_fields to apply CSS modifications to (via $search_results_title_trim)
 $thumbs_display_extended_fields = array();
 # $search_result_title_height=26;
-$search_results_title_trim = 30;
+$search_results_title_trim = 26;
 
 // Enable extra large thumbnails option for search screen
 $xlthumbs = true;
-$xl_search_results_title_trim = 50;
+$xl_search_results_title_trim = 41;
 
 // SORT Fields: display fields to be added to the sort links in large,small, and xlarge thumbnail views
 $sort_fields = array(12); // ** SEE NOTE (1)
@@ -1501,6 +1475,9 @@ $upload_chunk_size = '50mb';
 
 // This is the maximum number of concurrent file uploads allowed. Set to 1 to force single thread.
 $upload_concurrent_limit = 5;
+
+// Intervals to retry uploading a chunk, in milliseconds.
+$upload_retry_delays = [0, 1000, 3000, 5000];
 
 // Resource deletion state
 // When resources are deleted, the variable below can be set to move the resources into an alternative state instead of removing the resource and its files from the system entirely.
@@ -1630,10 +1607,7 @@ $public_collections_top_nav = false;
 // Show collection name below breadcrumbs?
 $show_collection_name = false;
 
-// Themes simple view - option to show featured collection categories and featured collections (themes) as basic tiles wih no images.
-// Can be tested or used for custom link by adding querystring parameter simpleview=true to collections_featured.php e.g. pages/collections_featured.php?simpleview=true
-$themes_simple_view = false;
-// Option to show images on featured collection and featured collection category tiles if $themes_simple_view is enabled
+// Option to show images on featured collection and featured collection category tiles
 $themes_simple_images = true;
 
 // Change featured collections root by pointing at a new featured collection category (using a collection has an undefined behaviour).
@@ -1931,7 +1905,7 @@ $upload_methods = array(
 // $unoconv_path="/usr/local/bin";
 // Files with these extensions will be passed to unoserver (if enabled above) for conversion to PDF and auto thumb-preview generation.
 // Default list taken from http://svn.rpmforge.net/svn/trunk/tools/unoconv/docs/formats.txt
-$unoconv_extensions = array("ods","xls","xlsx","doc","docx","odt","odp","html","rtf","txt","ppt","pptx","sxw","sdw","psw","sdw","pdb","bib","ltx","sdd","sda","odg","sdc","potx","key");
+$unoconv_extensions = array("ods","xls","xlsx","doc","docx","odt","odp","html","rtf","txt","ppt","pptx","sxw","sdw","psw","sdw","pdb","bib","ltx","sdd","sda","odg","sdc","potx","key","dotx");
 
 // Set path to Libre/OpenOffic's packaged python (required for Windows only).
 // $unoconv_python_path='';
@@ -2327,9 +2301,6 @@ $comments_policy_enable = false;                  // show a Comments Policy link
 $comments_policy_external_url = "";               // if specified, will popup a new window fulfilled by URL (when clicking on "comment policy" link)
 $comments_view_panel_show_marker = true;          // show an asterisk by the comment view panel title if comments exist
 
-// Show the login panel for anonymous users
-$show_anonymous_login_panel = true;
-
 $do_not_add_to_new_collection_default = false; // will set "do not add to a collection" as the default option for upload option
 $no_metadata_read_default = false; // If set to true and $metadata_read is false then metadata will be imported by default
 $removenever = false; // Remove 'never' option for resource request access expiration and sets default expiry date to 7 days
@@ -2636,6 +2607,9 @@ $replace_resource_preserve_default = false;
 // Option to allow replacement of multiple resources by filename using the "Replace resource batch" functionality
 $replace_batch_existing = false;
 
+// Option to allow replacement of multiple alternative files by filename using the "Replace resource batch" functionality
+$replace_batch_alt_existing = false;
+
 // E-mail address to send a report to if any of the automated tests (tests/test.php) fail.
 // This is used by Montala to automatically test the RS trunk on a nightly basis.
 // $email_test_fails_to="example@example.com";
@@ -2701,10 +2675,10 @@ $daterange_edtf_support = false;
 // Mappings between resource types and file extensions.
 // Can be used to automatically create resources in the system based on the extension of the file.
 $resource_type_extension_mapping_default = 1;
-$resource_type_extension_mapping         = array(
-2 => array('pdf', 'doc', 'docx', 'epub', 'ppt', 'pptx', 'odt', 'ods', 'tpl', 'ott' , 'rtf' , 'txt' , 'xml'),
-3 => array('mov', '3gp', 'avi', 'mpg', 'mp4', 'flv', 'wmv', 'webm'),
-4 => array('flac', 'mp3', '3ga', 'cda', 'rec', 'aa', 'au', 'mp4a', 'wav', 'aac', 'ogg', 'weba'),
+$resource_type_extension_mapping = array(
+    2 => array('pdf', 'doc', 'docx', 'epub', 'ppt', 'pptx', 'odt', 'ods', 'tpl', 'ott' , 'rtf' , 'txt' , 'xml'),
+    3 => array('mov', '3gp', 'avi', 'mpg', 'mp4', 'flv', 'wmv', 'webm'),
+    4 => array('flac', 'mp3', '3ga', 'cda', 'rec', 'aa', 'au', 'mp4a', 'wav', 'aac', 'ogg', 'weba', 'wma'),
 );
 
 // New mode that means the upload goes first, then the users edit and approve resources moving them to the correct stage.
@@ -2969,12 +2943,6 @@ $ghostscript_extensions = array('ps', 'pdf');
 // Generate only the internal preview sizes and show only the original file for download for any of the
 // extensions found in a merge of $non_image_types, $ffmpeg_supported_extensions, $unoconv_extensions and $ghostscript_extensions list
 $non_image_types_generate_preview_only = true;
-
-// Browse bar
-// Enable/Disable browse bar - in system config
-$browse_bar = true;
-// Show workflow (archive) states in browse bar?
-$browse_bar_workflow = true;
 
 // Batch replace from local folder
 $batch_replace_local_folder = ""; // e.g. "/upload";
@@ -3260,3 +3228,19 @@ $browser_check_message="Performing browser checks..."; // Message to display whe
 
 // Show the shorthand name column in the metadata admin area for easier identification of fields
 $metadata_admin_show_shorthand = false;
+
+// Allowlist of external services to give a user's API credentials to
+$api_issue_valid_destinations = [
+    "linkrui" => [
+        "name" => "LinkrUI",
+        "url" => "https://resourcespace.linkrui.com/saml",
+        "querydata" => ["username"],
+        "stateparam" => "state",
+    ],
+    "tagquest" => [
+        "name" => "TagQuest",
+        "url" => "https://resourcespace.tagquest.io/api/auth/rs-callback",
+        "querydata" => ["username", "email", "fullname"],
+        "stateparam" => "state",
+    ]
+];

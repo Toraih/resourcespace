@@ -81,3 +81,7 @@ $lang["cropper_preset_sizes"] = 'ขนาดที่กำหนดไว้�
 $lang["page-title_transform_collection_transform"] = 'แปลงทรัพยากร';
 $lang["page-title_transform_crop"] = 'ตัดแต่งทรัพยากร';
 $lang["page-title_transform_setup"] = 'ตั้งค่าปลั๊กอินการแปลง';
+$lang["use_filename_as_title"] = 'ใช้ชื่อไฟล์เป็นชื่อเรื่อง';
+
+$lang["error-resolution-zero"] = 'ข้อผิดพลาด: ความกว้าง/ความสูงของภาพต้นฉบับเป็นศูนย์';
+$lang["error-preview-missing"] = 'ข้อผิดพลาด: ไม่พบภาพตัวอย่าง';

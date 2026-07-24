@@ -83,3 +83,7 @@ $lang["cropper_preset_sizes"] = 'Forhåndsdefinerte størrelser';
 $lang["page-title_transform_collection_transform"] = 'Transformere ressurs';
 $lang["page-title_transform_crop"] = 'Beskjær ressurs';
 $lang["page-title_transform_setup"] = 'Sett opp Transform Plugin';
+$lang["use_filename_as_title"] = 'Bruk filnavn som tittel';
+
+$lang["error-resolution-zero"] = 'Feil: Originalbildet har en beregnet bredde/høyde på null.';
+$lang["error-preview-missing"] = 'Feil: Kan ikke finne forhåndsvisningsbildet';

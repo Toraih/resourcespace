@@ -704,7 +704,7 @@ function get_annotate_file_path($ref, $getfilepath, $extension): string
     global $username, $scramble_key, $baseurl, $annotateid;
     $annotateid = getval("annotateid", $annotateid); //or if sent through a request
     if ($getfilepath) {
-        $path = get_temp_dir(false, '') . "/annotate_" . $ref . "_" . md5($username . $annotateid . $scramble_key) . "." . $extension;
+        $path = get_temp_dir(false, '') . "/annotate_" . (int) $ref . "_" . md5($username . $annotateid . $scramble_key) . "." . $extension;
     } else {
         $path = generateURL(
             $baseurl . "/pages/download.php",
@@ -999,7 +999,6 @@ function create_annotated_pdf($ref, $is_collection = false, $size = "letter", $c
 /** Utility function to generate a one-off TCPDF variant (with multiRow method) */
 function annotation_pdf_class()
 {
-    include_once dirname(__DIR__) . '/lib/html2pdf/vendor/tecnickcom/tcpdf/tcpdf.php';
     return new class extends TCPDF {
         public function multiRow($left, $right)
         {

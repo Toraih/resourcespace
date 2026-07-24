@@ -220,25 +220,23 @@ include '../../include/header.php';
                     $slideshow_ref = $slideshow_file_info['ref'];
                     ?>
 
-                    <tr id="slideshow_<?php echo $slideshow_ref; ?>">
+                    <tr id="slideshow_<?php echo (int) $slideshow_ref; ?>">
                         <td>
                             <?php if (isset($slideshow_file_info['link'])) { ?>
                                 <a href="<?php echo $slideshow_file_info['link']; ?>" onclick="return ModalLoad(this, true);">
                                     <img 
-                                        id="slideshow_img_<?php echo $slideshow_ref; ?>"
+                                        id="slideshow_img_<?php echo (int) $slideshow_ref; ?>"
                                         src="<?php echo $slideshow_file_info['file_url']; ?>"
-                                        alt="Slideshow Image <?php echo $slideshow_ref; ?>"
-                                        width="150"
-                                        height="80"
+                                        alt="Slideshow Image <?php echo (int) $slideshow_ref; ?>"
+                                        width="200"
                                     >
                                 </a>
                             <?php } else { ?>
                                 <img
-                                    id="slideshow_img_<?php echo $slideshow_ref; ?>"
+                                    id="slideshow_img_<?php echo (int) $slideshow_ref; ?>"
                                     src="<?php echo $slideshow_file_info['file_url']; ?>"
-                                    alt="Slideshow Image <?php echo $slideshow_ref; ?>"
-                                    width="150"
-                                    height="80"
+                                    alt="Slideshow Image <?php echo (int) $slideshow_ref; ?>"
+                                    width="200"
                                 >
                             <?php } ?>
                         </td>
@@ -265,14 +263,14 @@ include '../../include/header.php';
 
                         <td>
                             <button
-                                id="slideshow_<?php echo $slideshow_ref; ?>_moveup"
+                                id="slideshow_<?php echo (int) $slideshow_ref; ?>_moveup"
                                 type="submit" slideMoveUpButton
                                 onclick="ReorderSlideshowImage(this, 'moveup');"
                                 <?php echo $moveup_disabled; ?>>
                                 <?php echo escape($lang['action-move-up']); ?>
                             </button>
                             <button
-                                id="slideshow_<?php echo $slideshow_ref; ?>_movedown"
+                                id="slideshow_<?php echo (int) $slideshow_ref; ?>_movedown"
                                 type="submit" slideMoveDownButton 
                                 onclick="ReorderSlideshowImage(this, 'movedown');"
                                 <?php echo $movedown_disabled; ?>>
@@ -280,7 +278,7 @@ include '../../include/header.php';
                             </button>
                             <?php hook('render_replace_button_for_manage_slideshow', '', array($slideshow_ref, $slideshow_file_info)); ?>
                             <button
-                                id="slideshow_<?php echo $slideshow_ref; ?>_delete"
+                                id="slideshow_<?php echo (int) $slideshow_ref; ?>_delete"
                                 type="submit" slideDeleteButton
                                 onclick="DeleteSlideshowImage(this);"
                                 <?php echo $delete_btn_disabled; ?>>

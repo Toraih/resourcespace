@@ -5,7 +5,7 @@ command_line_only();
 $use_cases = [
     [
         'name' => 'Characters like trademark/copyright should be stripped',
-        'input' => ['Trademark™ Product® 😊 Free© Trial ℠ ℞.'],
+        'input' => ['Trademark™ Product® 😊 Free© Trial ℠ ℞'],
         'expected' => 'Trademark Product Free Trial',
     ],
     [
@@ -15,7 +15,7 @@ $use_cases = [
     ],
     [
         'name' => 'Support multi lines by default',
-        'input' => ["Lorem ipsum dolor sit amet, consectetur adipiscing elit.\r\nDuis a accumsan elit."],
+        'input' => ["Lorem ipsum dolor sit amet, consectetur adipiscing elit\r\nDuis a accumsan elit"],
         'expected' => "Lorem ipsum dolor sit amet consectetur adipiscing elit\r\nDuis a accumsan elit",
     ],
     [
@@ -37,6 +37,16 @@ $use_cases = [
         'name' => 'Allow multiple extra characters, if applicable',
         'input' => ['test* -ignoreKeyword', ['-', '*']],
         'expected' => 'test* -ignoreKeyword',
+    ],
+    [
+        'name' => 'Allow @ (used by search with the NODE_TOKEN_PREFIX format)',
+        'input' => ['@@1234', ['@']],
+        'expected' => '@@1234',
+    ],
+    [
+        'name' => 'Allow . by default e.g. in IDs',
+        'input' => ['987.65.4', []],
+        'expected' => '987.65.4',
     ],
 ];
 foreach ($use_cases as $uc) {

@@ -315,7 +315,7 @@ include "../include/header.php";
                     $configurable_options = array(
                         $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["no_image"] => $lang["select"],
                         $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["most_popular_image"] => $lang["background_most_popular_image"],
-                        $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["most_popular_images"] => str_replace("%n", $theme_images_number, $lang["background_most_popular_images"]),
+                        $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["most_popular_images"] => str_replace("%n", THEME_IMAGES_NUMBER, $lang["background_most_popular_images"]),
                         $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["most_recent_image"] => $lang["background_most_recent_image"],
                         $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["manual"] => $lang["background_manual_selection"],
                     );
@@ -324,7 +324,7 @@ include "../include/header.php";
                         $lang["background_image"],
                         "thumbnail_selection_method",
                         $configurable_options,
-                        $collection["thumbnail_selection_method"],
+                        $collection["thumbnail_selection_method"] ?? "",
                         'class="stdwidth"',
                         array(
                             "onchange" => "toggle_fc_bg_image_txt_input(this, " . $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["manual"] . ");",

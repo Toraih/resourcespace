@@ -1172,14 +1172,14 @@ function auto_create_user_account($hash = "")
         $message->templatevars = $templatevars;
         $message->eventdata = $eventdata;
         send_user_notification($approval_notify_users, $message);
-    }
 
-    // Send a confirmation e-mail to requester
-    send_mail(
-        $user_email,
-        "{$applicationname}: {$lang['account_request_label']}",
-        $lang['account_request_confirmation_email_to_requester']
-    );
+        // Send a confirmation e-mail to requester
+        send_mail(
+            $user_email,
+            "{$applicationname}: {$lang['account_request_label']}",
+            $lang['account_request_confirmation_email_to_requester']
+        );
+    }
 
     return true;
 }
@@ -1957,6 +1957,8 @@ function check_access_key($resources, $key, $checkcollection = true, $is_categor
 
             // We need to get all globals as we don't know what may be referenced here
             override_rs_variables_by_eval($GLOBALS, $config_options, 'usergroup');
+
+            process_config_options(['usergroup' => $group]);
         }
     }
 
@@ -2335,7 +2337,8 @@ function resolve_user_emails($user_list)
  */
 function mark_email_as_invalid(string $email)
 {
-    if ($email == "") {
+    $email = trim($email);
+    if ($email === "") {
         return false;
     }
 
@@ -2343,9 +2346,18 @@ function mark_email_as_invalid(string $email)
     $matched_user = false;
 
     foreach ($users as $user) {
-        if (strtolower($email) == strtolower($user["email"])) {
+        if (mb_strtolower($email) === mb_strtolower($user["email"])) {
             $matched_user = true;
             ps_query("UPDATE user SET email_invalid = 1 WHERE ref = ?", ["i",$user["ref"]]);
+            log_activity(
+                log_code: LOG_CODE_EDITED,
+                remote_table: 'user',
+                remote_column: 'email_invalid',
+                remote_ref: $user['ref'],
+                value_new: 1,
+                value_old: $user['email_invalid'],
+                generate_diff: true,
+            );
         }
     }
 
@@ -3196,6 +3208,8 @@ function emulate_user($user, $usergroup = "")
 
             // We need to get all globals as we don't know what may be referenced here
             override_rs_variables_by_eval($GLOBALS, $config_options, 'usergroup');
+
+            process_config_options(['usergroup' => $usergroup]);
         }
     }
 
@@ -3602,7 +3616,7 @@ function set_processing_message(string $message)
 {
     debug_function_call(__FUNCTION__, func_get_args());
     global $userref,$userprocessing_messages,$set_processing_message_first_call;
-    if (PHP_SAPI === "cli" ||  defined("API_CALL")) {
+    if (PHP_SAPI === "cli" || defined("API_CALL") || (isset($GLOBALS['iiif_userid']) && $GLOBALS['iiif_userid'] === $userref)) {
         // Messages don't work unless using browser
         return;
     }
@@ -3735,7 +3749,12 @@ function browser_check()
     if (PHP_SAPI == 'cli') {return;}
     if (isset($disable_browser_check) && $disable_browser_check) {return;} // e.g. API/IIIF
 
-    if (!isset($_SERVER["HTTP_USER_AGENT"])) {exit();} // Terminate requests that do not specify a user agent
+    // Terminate requests that do not specify a user agent
+    if (!isset($_SERVER["HTTP_USER_AGENT"])) {
+        http_response_code(403);
+        exit('Forbidden');
+        } 
+        
     $question_key=hash_hmac("sha512", $_SERVER["HTTP_USER_AGENT"] . date('Ymd'), $browser_check_key);
     $answer_key=xor_base64_encode($question_key);
 

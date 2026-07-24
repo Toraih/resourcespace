@@ -81,3 +81,7 @@ $lang["cropper_preset_sizes"] = 'Заздалегідь визначені ро�
 $lang["page-title_transform_collection_transform"] = 'Перетворити ресурс';
 $lang["page-title_transform_crop"] = 'Обрізати ресурс';
 $lang["page-title_transform_setup"] = 'Налаштування плагіна трансформації';
+$lang["use_filename_as_title"] = 'Використовувати ім\'я файлу як назву';
+
+$lang["error-resolution-zero"] = 'Помилка: Оригінальне зображення має обчислену ширину/висоту рівну нулю.';
+$lang["error-preview-missing"] = 'Помилка: Не вдалося знайти зображення попереднього перегляду';

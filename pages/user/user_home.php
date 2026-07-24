@@ -78,7 +78,7 @@ $introtext = text("introtext");
                 <script>message_poll();</script>
                 <?php
                 if ($offline_job_queue) {
-                    $failedjobs = job_queue_get_jobs("", STATUS_ERROR, (checkperm('a') ? 0 : $userref));
+                    $failedjobs = job_queue_get_jobs("", STATUS_ERROR, $userref);
                     $failedjobcount = count($failedjobs);
                     echo "<li title='" . escape($lang['my_jobs-tooltip']) . "'>";
                     echo "<a id='user_jobs_link' href='" . generateURL("{$baseurl_short}pages/manage_jobs.php", ['job_user' => $userref]) . "' onClick='return CentralSpaceLoad(this, true);'><i aria-hidden='true' class='icon-list-todo'></i><br />" . escape($lang['my_jobs']) . ($failedjobcount > 0 ? "&nbsp;<span class='FailedJobCountPill Pill'>" . escape($failedjobcount) . "</span>" : "") . "</a>";
@@ -111,8 +111,20 @@ $introtext = text("introtext");
                     <?php
                 }
 
+                if ($help_link) { ?>
+                    <li class="HeaderLink">
+                        <a href="<?php echo $baseurl?>/pages/help.php" onClick="return <?php if (!$help_modal) {
+                            ?>CentralSpaceLoad(this,true);<?php
+                                } else {
+                                        ?>ModalLoad(this,true);<?php
+                                } ?>">
+                            <i aria-hidden="true" class="icon-life-buoy"></i>
+                            <br /><?php echo escape(text('helpandadvice')); ?>
+                        </a>
+                    </li><?php
+                }
+
                 hook('user_home_additional_links');
-            # Log out
             }
 
             if (!isset($password_reset_mode) || !$password_reset_mode) { ?>

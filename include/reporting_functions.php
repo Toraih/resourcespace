@@ -141,7 +141,15 @@ function do_report($ref, $from_y, $from_m, $from_d, $to_y, $to_m, $to_d, $downlo
         $sql = report_process_query_placeholders($report['query'], $report_placeholders);
 
         db_set_connection_mode("read_only");
-        $results = ps_query($sql, $sql_parameters);
+        try {
+            $results = ps_query($sql, $sql_parameters);
+        } catch (Exception $e) {
+            if (is_process_lock('cron')) {
+                return escape($lang['error_report_execution']);
+            } else { 
+                errorhandler(E_ERROR, $e->getMessage(), $e->getFile(), $e->getLine());
+            }
+        }
         db_clear_connection_mode();
     }
 
@@ -389,7 +397,10 @@ function send_periodic_report_emails($echo_out = true, $toemail = true)
         return;
     }
 
-    set_process_lock("periodic_report_emails");
+    if (!set_process_lock("periodic_report_emails")) {
+        echo " - unable to set process lock. Deferring.\n";
+        return;
+    }
 
     // Keep record of temporary CSV/ZIP files to delete after emails have been sent
     $deletefiles = array();
@@ -498,7 +509,6 @@ function send_periodic_report_emails($echo_out = true, $toemail = true)
                 $reportfiles = $reportcache["reportfiles"];
             } else {
                 $output = do_report($report["report"], $from_y, $from_m, $from_d, $to_y, $to_m, $to_d, false, true, $toemail, $search_params);
-
                 if (empty($output)) {
                     // No data, maybe no access to search results
                     $output = "<br/>" . $lang["reportempty"] . "<br/>";
@@ -774,8 +784,6 @@ function report_process_query_placeholders(string $query, array $placeholders): 
  */
 function render_pie_graph($id, $data, $total = null)
 {
-    global $home_colour_style_override,$header_link_style_override;
-
     $rt = 0;
     $labels = [];
     $values = [];

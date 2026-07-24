@@ -83,3 +83,7 @@ $lang["cropper_preset_sizes"] = 'Vooraf gedefinieerde maten';
 $lang["page-title_transform_collection_transform"] = 'Transformeer Resource';
 $lang["page-title_transform_crop"] = 'Bijsnijden Hulpbron';
 $lang["page-title_transform_setup"] = 'Instellen Transform Plugin';
+$lang["use_filename_as_title"] = 'Gebruik bestandsnaam als titel';
+
+$lang["error-resolution-zero"] = 'Fout: De originele afbeelding heeft een berekende breedte/hoogte van nul.';
+$lang["error-preview-missing"] = 'Fout: Kan geen voorbeeldafbeelding vinden';

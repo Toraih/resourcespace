@@ -405,22 +405,45 @@ if (getval("resetrestypes","")=="")
     {
     $restypes=getval("restypes","");
     }
-else
-    { 
-    $restypes="";
-    reset($_POST);reset($_GET);foreach (array_merge($_GET, $_POST) as $key=>$value)
-
-        {
-        $hiddenfields = array();
-        if ($key=="rttickall" && $value=="on"){$restypes="";break;} 
-        if ((substr($key,0,8)=="resource")&&!in_array($key, $hiddenfields)) {if ($restypes!="") {$restypes.=",";} $restypes.=substr($key,8);}
-        }
+else { 
+    /** Check input type and support the pseudo "Global" and resource type IDs */
+    $check_restype_list_item_type = static fn ($V): bool => (is_int_loose($V) || is_string_loose($V));
+    $rt_val = getval(
+        'restypes',
+        [],
+        false,
+        static fn ($V): bool => is_input_list_loose($V)
+            // If using the (saved) cookie value, the input will be a CSV
+            || (is_string($V) && array_filter(parse_csv_to_list_of_type($V, $check_restype_list_item_type)) !== [])
+    );
+    $restypes = implode(
+        ',',
+        array_merge(
+            array_values(array_intersect(
+                array_merge(
+                    ['Global'], # pseudo resource type <=> "All resource types" option
+                    array_values(
+                        array_diff(
+                            array_map(intval(...), array_column(get_resource_types('', true, false, true), 'ref')),
+                            $hide_resource_types
+                        )
+                    )
+                ),
+                is_array($rt_val) ? $rt_val : parse_csv_to_list_of_type($rt_val, $check_restype_list_item_type)
+            )),
+            getval('includeFeaturedCollections', '') === 'yes' ? ['FeaturedCollections'] : []
+        )
+    );
 
     rs_setcookie('restypes', $restypes,0,"","",false,false);
 
     # This is a new search, log this activity
-    if ($archivesearched) {daily_stat("Archive search",0);} else {daily_stat("Search",0);}
+    if ($archivesearched) {
+        daily_stat("Archive search", 0);
+    } else {
+        daily_stat("Search", 0);
     }
+}
 $modified_restypes=hook("modifyrestypes_aftercookieset");
 if($modified_restypes){$restypes=$modified_restypes;}
 
@@ -449,7 +472,13 @@ if ($old_search)
     $archive=implode(",",$selected_archive_states);
     }
     
-hook("searchparameterhandler"); 
+hook("searchparameterhandler");
+
+if ($watermark !== '') {
+    $use_watermark = check_use_watermark();
+} else {
+    $use_watermark = false;
+}
     
 # If requested, refresh the collection frame (for redirects from saves)
 if (getval("refreshcollectionframe","")!="")
@@ -655,11 +684,13 @@ include "../include/header.php";
 if($k=="" || $internal_share_access)
     {
      ?>
-    <script type="text/javascript">
-    var dontReloadSearchBar=<?php echo getval('noreload', null)!=null ? 'true' : 'false' ?>;
-    if (dontReloadSearchBar !== true)
-        ReloadSearchBar();
-    ReloadLinks();
+    <script>
+        jQuery(() => {
+            const dontReloadSearchBar=<?php echo getval('noreload', null)!=null ? 'true' : 'false' ?>;
+            if (dontReloadSearchBar !== true) {
+                ResourceSpace.Modules.Header.reloadSearchBar();
+            }
+        });
     </script>
     <?php
     }
@@ -726,7 +757,6 @@ if($collectionsearch && collection_writeable(substr($search, 11)))
                     resource_id = resource_id.replace('ResourceShell', '');
                     var collection_id = query_strings.search.substring(11);
 
-                    jQuery('#trash_bin').hide();
                     AddResourceToCollection(event, ui, resource_id, '', collection_id);
                     CentralSpaceLoad(window.location.href, true);
                 }
@@ -743,7 +773,6 @@ if(!$collectionsearch)
     ?>
     <!-- Search item results in centralspace have a class of "ResourcePanel" -->
     <!-- These items should be draggable to add them to the collection in the collection bar if results are NOT from collection search -->
-    <!-- They should also be draggable to the trash_bin to removing them from a collection if results ARE from collection search -->
     <script>    
     // The below numbers are hardcoded mid points for thumbs and xlthumbs
     var thumb_vertical_mid = <?php if($display=='xlthumbs'){?>197<?php } else {?>123<?php }?>;
@@ -853,7 +882,6 @@ if ($collectionsearch && $display!="list") {
                         }
                     var collection_id = query_strings.search.substring(11);
 
-                    jQuery('#trash_bin').show();
                     }
                 },
 
@@ -890,20 +918,11 @@ if ($collectionsearch && $display!="list") {
                    return false;
                     <?php
                     }?>
-                    
-                if(is_special_search('!collection', 11))
-                    {
-                    jQuery('#trash_bin').hide();
-                    }
                 },
 
             stop: function(event, ui)
                 {
                 InfoBoxEnabled=true;
-                if(is_special_search('!collection', 11))
-                    {
-                    jQuery('#trash_bin').hide();
-                    }
                 }
         });
         jQuery('.ResourcePanelShell').disableSelection();
@@ -1487,7 +1506,7 @@ if (!hook("replacesearchheader")) # Always show search header now.
         {
         $list_displayed = true;
         ?>
-        <div class="BasicsBox"><div class="Listview">
+        <div class="BasicsBox nopadding"><div class="Listview">
         <table class="ListviewStyle">
 
         <?php if(!hook("replacelistviewtitlerow")){?>   
@@ -1684,7 +1703,7 @@ if (!hook("replacesearchheader")) # Always show search header now.
     // Determine geolocation parameters for map search view.
     if (!$disable_geocoding && $display == "map")
         {
-        global $marker_metadata_field, $use_watermark;
+        global $marker_metadata_field;
 
         // Loop through search results.
         for ($n = 0; $n < $result_count; $n++)
@@ -1726,7 +1745,10 @@ if (!hook("replacesearchheader")) # Always show search header now.
             for ($n=0;$n<$suggest_count;$n++)
                 {
                 if ($n>0) {echo ", ";}
-                ?><a  href="<?php echo $baseurl_short?>pages/search.php?search=<?php echo  urlencode(strip_tags($suggest[$n])); ?>" onClick="return CentralSpaceLoad(this);"><?php echo stripslashes($suggest[$n]); ?></a><?php
+                    ?>
+                    <a href="<?php echo $baseurl_short?>pages/search.php?search=<?php echo  urlencode(strip_tags($suggest[$n])); ?>" 
+                    onClick="return CentralSpaceLoad(this);"><?php echo escape(stripslashes($suggest[$n])); ?></a>
+                    <?php
                 }
             ?></p><?php
             }
@@ -1765,6 +1787,8 @@ if (!hook("replacesearchheader")) # Always show search header now.
             $resource_panel_height_max = 0;            
             for ($n=0;$n<$result_count-$offset && $n<$resources_count && $n<$resourcestoretrieve;$n++)
                 {
+                if (!isset($result[$n])) {continue;}
+                
                 # Allow alternative configuration settings for this resource type.
                 resource_type_config_override($result[$n]["resource_type"]);
                 
@@ -1878,7 +1902,9 @@ if($display != 'map')
 
             if(jQuery(elementScroll).length)
                 {
-                elementScroll.scrollIntoView();
+                elementScroll.scrollIntoView({
+                    container: 'nearest'
+                });
                 }
             }
         });

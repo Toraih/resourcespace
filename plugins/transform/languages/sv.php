@@ -90,3 +90,7 @@ $lang["cropper_preset_sizes"] = 'Fördefinierade storlekar';
 $lang["page-title_transform_collection_transform"] = 'Transformera resurs';
 $lang["page-title_transform_crop"] = 'Beskär resurs';
 $lang["page-title_transform_setup"] = 'Konfigurera Transform Plugin';
+$lang["use_filename_as_title"] = 'Använd filnamn som titel';
+
+$lang["error-resolution-zero"] = 'Fel: Originalbilden har en beräknad bredd/höjd på noll.';
+$lang["error-preview-missing"] = 'Fel: Kan inte hitta förhandsgranskningsbild';

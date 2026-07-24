@@ -83,3 +83,7 @@ $lang["cropper_preset_sizes"] = 'Προκαθορισμένα μεγέθη';
 $lang["page-title_transform_collection_transform"] = 'Μετασχηματισμός Πόρου';
 $lang["page-title_transform_crop"] = 'Επεξεργασία Πόρου';
 $lang["page-title_transform_setup"] = 'Ρύθμιση Πρόσθετου Μετασχηματισμού';
+$lang["use_filename_as_title"] = 'Χρησιμοποιήστε το όνομα αρχείου ως τίτλο';
+
+$lang["error-resolution-zero"] = 'Σφάλμα: Το αρχικό εικόνα έχει υπολογισμένο πλάτος/ύψος μηδέν.';
+$lang["error-preview-missing"] = 'Σφάλμα: Αδύνατη η εύρεση προεπισκόπησης εικόνας';

@@ -382,20 +382,15 @@ if (get_post_bool('ajax')) {
             .language {clear:both; text-align:center; padding:20px;}
         </style> 
     </head>
-    <body class="SlimHeader">
+    <body>
         <div id="setup-container">
-            <div id="Header" style="height: 40px;">
-                <div class="HeaderImgLink">
-                    <img alt="" src="../gfx/titles/title-black.svg" id="HeaderImg" />
+            <header>
+                <div id="header-container">
+                    <div class="logo">
+                        <img alt="" src="../gfx/titles/title-black.svg" id="HeaderImg" />
+                    </div>
                 </div>
-                <div id="HeaderNav1" class="HorizontalNav ">
-                    <ul></ul>
-                </div>
-                <div id="HeaderNav2" class="HorizontalNav HorizontalWhiteNav">
-                    <ul></ul>
-                </div> 
-                <div class="clearer"></div>
-            </div>
+            </header>
 
             <?php
             // Check if config file already exists and die with an error if it does.
@@ -862,7 +857,7 @@ if (get_post_bool('ajax')) {
 
                             if (file_exists($path . "/" . $data)) {
                                 $f = fopen($path . "/" . $data, "r");
-                                while (($row = fgetcsv($f, 5000)) !== false) {
+                                while (($row = fgetcsv($f, 5000, escape: '\\')) !== false) {
                                     for ($n = 0; $n < count($row); $n++) {
                                         if ($row[$n] == "''") {
                                             $row[$n] = null;
@@ -881,7 +876,7 @@ if (get_post_bool('ajax')) {
                                 $done = array(); # List of indices already processed.
                                 $f = fopen($path . "/" . $file, "r");
 
-                                while (($col = fgetcsv($f, 5000)) !== false) {
+                                while (($col = fgetcsv($f, 5000, escape: '\\')) !== false) {
                                     # Look for this index in the existing indices.
                                     $found = false;
                                     for ($n = 0; $n < count($existing); $n++) {
@@ -896,7 +891,7 @@ if (get_post_bool('ajax')) {
                                         $cols = array();
                                         $f2 = fopen($path . "/" . $file, "r");
 
-                                        while (($col2 = fgetcsv($f2, 5000)) !== false) {
+                                        while (($col2 = fgetcsv($f2, 5000, escape: '\\')) !== false) {
                                             if ($col2[2] == $col[2]) {
                                                 $cols[] = $col2[4];
                                             }
@@ -1020,8 +1015,8 @@ if (get_post_bool('ajax')) {
 
                             <?php
                             $continue = true;
-                            if (version_compare(PHP_VERSION, '8.1.0', '<')) {
-                                $result   = $lang["status-fail"] . ": " . str_replace('?', '8.1.0', $lang['shouldbeversion']);
+                            if (version_compare(PHP_VERSION, '8.2.0', '<')) {
+                                $result   = $lang["status-fail"] . ": " . str_replace('?', '8.2.0', $lang['shouldbeversion']);
                                 $pass     = false;
                                 $continue = false;
                             } else {

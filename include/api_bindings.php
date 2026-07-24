@@ -1052,6 +1052,9 @@ function api_get_collections_resource_count(string $refs)
 
 function api_get_users($find = "", $exact_username_match = false)
 {
+    if (is_anonymous_user()) {
+        return [];
+    }
     // Forward to the internal function - with "usepermissions" locked to TRUE.
     // Return specific columns only as there's sensitive information in the others such as password/session key.
     return get_users(0, $find, "u.username", true, -1, "", false, "u.ref,u.username,u.email,u.fullname,u.usergroup", $exact_username_match);
@@ -1284,11 +1287,16 @@ function api_get_users_by_permission($permissions)
  * @param int $alternative Use the uploaded file to replace the alternative file with the given ID
  *            Note that api_add_alternative_file() must be called first if creating a new alternative file
  *            If an $alternative identifier is specified then $previewonly is ignored and set to false
+ * @param bool $autorotate Automatically rotate (correct) images
  *
  * @return array Returns JSend data back {@see ajax_functions.php} if upload failed, otherwise 204 HTTP status
  */
-function api_upload_multipart(int $ref, bool $no_exif, bool $revert, bool $previewonly = false, int $alternative = 0): array
+function api_upload_multipart(int $ref, bool $no_exif, bool $revert, bool $previewonly = false, int $alternative = 0, bool $autorotate = false): array
 {
+    global $camera_autorotation, $camera_autorotation_ext;
+
+    $autorotate = filter_var($autorotate, FILTER_VALIDATE_BOOLEAN);
+
     $request_checks = [
         fn(): array => assert_post_request(true),
         fn(): array => assert_content_type('multipart/form-data', $_SERVER['CONTENT_TYPE'] ?? ''),
@@ -1389,6 +1397,15 @@ function api_upload_multipart(int $ref, bool $no_exif, bool $revert, bool $previ
                 "file_extension" => (string) $extension,
                 "file_size" => (int) $file_size,
             ];
+
+            if (
+                $camera_autorotation
+                && $autorotate
+                && (in_array($extension, $camera_autorotation_ext))
+            ) {
+                    AutoRotateImage($altpath);
+            }
+
             save_alternative_file($ref, $alternative, $altdata);
             create_previews($ref, false, $extension, false, false, $alternative);
             http_response_code(204);
@@ -1407,7 +1424,7 @@ function api_upload_multipart(int $ref, bool $no_exif, bool $revert, bool $previ
                 ));
             }
         }
-        if (upload_file($ref, $no_exif, $revert)) {
+        if (upload_file($ref, $no_exif, $revert, $autorotate)) {
             http_response_code(204);
             return ajax_response_ok_no_data();
         }

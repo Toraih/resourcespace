@@ -81,3 +81,7 @@ $lang["cropper_preset_sizes"] = 'Saiz yang telah ditetapkan';
 $lang["page-title_transform_collection_transform"] = 'Transform Sumber';
 $lang["page-title_transform_crop"] = 'Potong Sumber';
 $lang["page-title_transform_setup"] = 'Tetapkan Plugin Transform';
+$lang["use_filename_as_title"] = 'Gunakan nama fail sebagai tajuk';
+
+$lang["error-resolution-zero"] = 'Ralat: Lebar / tinggi asal mempunyai nilai kosong yang dikira.';
+$lang["error-preview-missing"] = 'Ralat: Tidak dapat mencari imej pratonton';

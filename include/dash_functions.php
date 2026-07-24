@@ -490,16 +490,15 @@ function get_default_dash($user_group_id = null, $edit_mode = false)
 
         $order += 10;
 
-        $tile_custom_style = '';
         $buildstring = explode('?', $tile['url']);
         parse_str(str_replace('&amp;', '&', ($buildstring[1] ?? "")), $buildstring);
 
-        if (isset($buildstring['tltype']) && allow_tile_colour_change($buildstring['tltype']) && isset($buildstring['tlstylecolour'])) {
-            $tile_custom_style .= get_tile_custom_style($buildstring);
-        }
-
         if (in_array($tile['tile'], $hidden_tiles)) {
             $contents_tile_class .= $hidden_tile_class;
+        }
+
+        if (isset($buildstring['tlsize']) && $buildstring['tlsize'] == 'double') {
+            $contents_tile_class .= " DoubleWidthDashTile";
         }
         ?>
         <a 
@@ -518,7 +517,7 @@ function get_default_dash($user_group_id = null, $edit_mode = false)
             class="HomePanel DashTile DashTileDraggable <?php echo $tile["allow_delete"] ? "" : "conftile";?>" 
             id="tile<?php echo escape($tile["tile"]);?>"
         >
-            <div id="contents_tile<?php echo escape($tile["tile"]);?>" class="HomePanelIN HomePanelDynamicDash <?php echo $contents_tile_class; ?>" style="<?php echo $tile_custom_style; ?>">
+            <div id="contents_tile<?php echo escape($tile["tile"]);?>" class="HomePanelIN HomePanelDynamicDash <?php echo $contents_tile_class; ?>">
                 <?php
                 if (strpos($tile["url"], "dash_tile.php") !== false) {
                     # Only pre-render the title if using a "standard" tile and therefore we know the H2 will be in the target data.
@@ -559,7 +558,7 @@ function get_default_dash($user_group_id = null, $edit_mode = false)
                 "<?php echo $baseurl?>/pages/ajax/dash_tile.php",
                 {
                     "tile": tile,
-                    "new_index": ((index*10))<?php echo !is_null($user_group_id) ? ", \"selected_user_group\": {$user_group_id}" : ''; ?>,
+                    "new_index": (index*10)<?php echo !is_null($user_group_id) ? ', "selected_user_group": ' . (int) $user_group_id : ''; ?>,
                     <?php echo generateAjaxToken("updateDashTileOrder"); ?>
                 }
             );
@@ -577,60 +576,13 @@ function get_default_dash($user_group_id = null, $edit_mode = false)
                 distance: 20,
                 items: ".DashTileDraggable",
                 start: function(event,ui) {
-                    jQuery("#dash_tile_bin").show();
                     dragging=true;
-                },
-                stop: function(event,ui) {
-                    jQuery("#dash_tile_bin").hide();
                 },
                 update: function(event, ui) {
                     nonDraggableTiles = jQuery(".HomePanel").length - jQuery(".DashTileDraggable").length;
                     newIndex = (ui.item.index() - nonDraggableTiles) + 1;
                     var id = jQuery(ui.item).attr("id").replace("tile","");
                     updateDashTileOrder(newIndex,id);
-                }
-            });
-
-            jQuery("#dash_tile_bin").droppable({
-                accept: ".DashTileDraggable",
-                activeClass: "ui-state-hover",
-                hoverClass: "ui-state-active",
-                drop: function(event,ui) {
-                    var id = jQuery(ui.draggable).attr("id");
-                    id = id.replace("tile","");
-                    title = jQuery(ui.draggable).find(".title").html();
-
-                    jQuery("#dash_tile_bin").hide();
-
-                    if (jQuery("#tile" + id).hasClass("conftile")) {
-                        jQuery("#delete_permanent_dialog").dialog({
-                            title:'<?php echo escape($lang["dashtiledelete"]); ?>',
-                            modal: true,
-                            resizable: false,
-                            dialogClass: 'delete-dialog no-close',
-                            buttons: {
-                                "<?php echo escape($lang['confirmdefaultdashtiledelete']); ?>": function() {
-                                    jQuery(this).dialog("close");
-                                    deleteDefaultDashTile(id);
-                                },    
-                                "<?php echo escape($lang['cancel']); ?>": function() { 
-                                    jQuery(this).dialog('close');
-                                }
-                            }
-                        });
-                        return;
-                    }
-
-                    jQuery("#trash_bin_delete_dialog").dialog({
-                        title:'<?php echo escape($lang["dashtiledelete"]); ?>',
-                        modal: true,
-                        resizable: false,
-                        dialogClass: 'delete-dialog no-close',
-                        buttons: {
-                            "<?php echo escape($lang['confirmdefaultdashtiledelete']); ?>": function() {jQuery(this).dialog("close");deleteDefaultDashTile(id); },    
-                            "<?php echo escape($lang['cancel']); ?>": function() { jQuery(this).dialog('close'); }
-                        }
-                    });
                 }
             });
         });
@@ -679,13 +631,9 @@ function get_managed_dash()
     );
 
     foreach ($tiles as $tile) {
-        $tile_custom_style = '';
         $buildstring = explode('?', $tile['url']);
         list($url_page, $buildstring) = $buildstring;
         parse_str(str_replace('&amp;', '&', $buildstring), $buildstring);
-        if (isset($buildstring['tltype']) && allow_tile_colour_change($buildstring['tltype']) && isset($buildstring['tlstylecolour'])) {
-            $tile_custom_style .= get_tile_custom_style($buildstring);
-        }
         ?>
         <a 
             <?php
@@ -707,7 +655,7 @@ function get_managed_dash()
             class="HomePanel DashTile DashTileDraggable <?php echo 'double' == $tlsize ? 'DoubleWidthDashTile' : ''; ?>" 
             id="tile<?php echo escape($tile["tile"]);?>"
         >
-            <div id="contents_tile<?php echo escape($tile["tile"]);?>" class="HomePanelIN HomePanelDynamicDash" style="<?php echo $tile_custom_style; ?>">
+            <div id="contents_tile<?php echo escape($tile["tile"]);?>" class="HomePanelIN HomePanelDynamicDash <?php echo $tlsize == 'double' ? 'DoubleWidthDashTile' : '' ;?>">
                 <?php if (strpos($tile["url"], "dash_tile.php") !== false) {
                     # Only pre-render the title if using a "standard" tile and therefore we know the H2 will be in the target data.
                     ?>
@@ -1322,7 +1270,6 @@ function get_user_dash($user)
         }
 
         $order += 10;
-        $tile_custom_style = '';
         $buildstring = explode('?', $tile['url']);
 
         list($url_page, $buildstring) = $buildstring;
@@ -1343,9 +1290,6 @@ function get_user_dash($user)
         }
 
         $tlsize = (isset($buildstring['tlsize']) ? $buildstring['tlsize'] : '');
-        if (isset($buildstring['tltype']) && allow_tile_colour_change($buildstring['tltype']) && isset($buildstring['tlstylecolour'])) {
-            $tile_custom_style .= get_tile_custom_style($buildstring);
-        }
         ?>
         <a 
             <?php
@@ -1369,7 +1313,7 @@ function get_user_dash($user)
             tile="<?php echo $tile['tile']; ?>"
             id="user_tile<?php echo escape($tile["user_tile"]);?>"
         >
-            <div id="contents_user_tile<?php echo escape($tile["user_tile"]);?>" class="HomePanelIN HomePanelDynamicDash" style="<?php echo $tile_custom_style; ?>">
+            <div id="contents_user_tile<?php echo escape($tile["user_tile"]);?>" class="HomePanelIN HomePanelDynamicDash <?php echo 'double' == $tlsize ? 'DoubleWidthDashTile' : ''; ?>">
                 <script>
                     jQuery(function() {
                         var height = jQuery("#contents_user_tile<?php echo escape($tile["user_tile"]);?>").height();
@@ -1441,11 +1385,7 @@ function get_user_dash($user)
                 distance: 20,
                 items: ".DashTileDraggable",
                 start: function(event,ui) {
-                    jQuery("#dash_tile_bin").show();
                     dragging = true;
-                },
-                stop: function(event,ui) {
-                    jQuery("#dash_tile_bin").hide();
                 },
                 update: function(event, ui) {
                     nonDraggableTiles = jQuery(".HomePanel").length - jQuery(".DashTileDraggable").length;
@@ -1454,52 +1394,6 @@ function get_user_dash($user)
                     updateDashTileOrder(newIndex,id);
                 }
             });
-
-            <?php
-            # Check Permissions to Display Deleting Dash Tiles
-            if ((checkperm("h") && !checkperm("hdta")) || (checkperm("dta") && !checkperm("h")) || !checkperm("dtu")) {
-                ?>
-                jQuery("#dash_tile_bin").droppable({
-                    accept: ".DashTileDraggable",
-                    activeClass: "ui-state-hover",
-                    hoverClass: "ui-state-active",
-                    drop: function(event, ui) {
-                        var usertileid = jQuery(ui.draggable).attr("id");
-                        usertileid = usertileid.replace("user_tile","");
-                        <?php
-                        # If permission to delete all_user tiles
-                        if ((checkperm("h") && !checkperm("hdta")) || (checkperm("dta") && !checkperm("h"))) { ?>
-                            var tileid = jQuery(ui.draggable).attr("tile");
-                            var usertileid = jQuery(ui.draggable).attr("id");
-                            usertileid = usertileid.replace("user_tile","");
-                            <?php
-                        } ?>
-
-                        title = jQuery(ui.draggable).find(".title").html();
-                        jQuery("#dash_tile_bin").hide();
-
-                        <?php
-                        # If permission to delete all_user tiles
-                        if ((checkperm("h") && !checkperm("hdta")) || (checkperm("dta") && !checkperm("h"))) {
-                            ?>
-                            if (jQuery(ui.draggable).hasClass("allUsers")) {
-                                // This tile is set for all users so provide extra options
-                                <?php render_delete_dialog_JS(true); ?>
-                            } else {
-                                // This tile belongs to this user only
-                                <?php render_delete_dialog_JS(false); ?>
-                            }
-                            <?php
-                        } else {
-                            // Only show dialog to delete for this user
-                            ?>
-                            var dialog = <?php render_delete_dialog_JS(false);
-                        } ?>
-                    }
-                });
-                <?php
-            }
-            ?>
         });
     </script>
     <?php
@@ -1673,123 +1567,6 @@ function build_dash_tile_list($dtiles_available)
     }
 }
 
-/**
-* Check whether we allow a colour change of a tile from the interface.
-* At the moment it is only available for blank search tiles and text
-* text only tiles.
-*
-* @param string $tile_type
-* @param string $tile_style Examples: thmbs, multi, blank, ftxt
-*
-* @return boolean
-*/
-function allow_tile_colour_change($tile_type, $tile_style = '')
-{
-    global $tile_styles;
-
-    $allowed_styles = array('blank', 'ftxt');
-
-    // Check a specific style for a type
-    if ('' !== $tile_style && !in_array($tile_style, $allowed_styles)) {
-        return false;
-    }
-
-    // Is one of the allowed styles in the styles available for this tile type?
-    if (isset($tile_styles[$tile_type]) && 0 < count(array_intersect($tile_styles[$tile_type], $allowed_styles))) {
-        return true;
-    }
-
-    return false;
-}
-
-/**
-* Renders a new section to pick/ select a colour. User can either use the color
-* picker or select a colour from the ones already available (config option)
-*
-* @param string $tile_style
-* @param string $tile_colour Hexadecimal code (without the # sign). Example: 0A8A0E
-*
-* @return void
-*/
-function render_dash_tile_colour_chooser($tile_style, $tile_colour)
-{
-    global $lang, $baseurl;
-
-    if ('ftxt' == $tile_style) { ?>
-        <div class="Question">
-    <?php } else { ?>
-        <span id="tile_style_colour_chooser" style="display: none;">
-    <?php } ?>
-
-    <label for="tile_style_colour"><?php echo escape($lang['colour']); ?></label>
-    <input id="tile_style_colour" name="tlstylecolour" type="color" onchange="update_tile_preview_colour(this.value);" value="<?php echo $tile_colour; ?>">
-
-    <!-- Show/ hide colour picker/ selector -->
-    <script>
-        function update_tile_preview_colour(colour) {
-            jQuery('#previewdashtile').css('background-color', '#' + colour);
-        }
-
-        <?php if ('ftxt' == $tile_style) { ?>
-            jQuery(document).ready(function() {
-                if (jQuery('#tile_style_colour').val() != '') {
-                    update_tile_preview_colour('<?php echo $tile_colour; ?>');
-                }
-            });
-        <?php } else { ?>
-            jQuery(document).ready(function() {
-                if (jQuery('#tile_style_<?php echo $tile_style; ?>').prop('checked')) {
-                    jQuery('#tile_style_colour_chooser').show();
-                    update_tile_preview_colour('<?php echo $tile_colour; ?>');
-                }
-            });
-
-            jQuery('input:radio[name="tlstyle"]').change(function() {
-                if (jQuery(this).prop('checked') && jQuery(this).val() == '<?php echo $tile_style; ?>') {
-                    jQuery('#tile_style_colour_chooser').show();
-                } else {
-                    jQuery('#tile_style_colour_chooser').hide();
-                    jQuery('#tile_style_colour').val('');
-                    jQuery('#tile_style_colour').removeAttr('style');
-                    jQuery('#previewdashtile').removeAttr('style');
-                }
-            });
-        <?php } ?>
-    </script>
-
-    <?php if ('ftxt' == $tile_style) { ?>
-        </div>
-    <?php } else { ?>
-        </span>
-    <?php } ?>
-    <div class="clearerleft"></div>
-    <?php
-}
-
-/**
- * Generate custom CSS style for a dashboard tile background color.
- *
- * @param array $buildstring An associative array containing tile style properties, including 'tlstylecolour' for the background color.
- * @return string A CSS style string for the background color (e.g., "background-color: #FFFFFF;"), or an empty string if no color is specified.
- */
-function get_tile_custom_style($buildstring)
-{
-    if (isset($buildstring['tlstylecolour'])) {
-        $return_value = "background-color: ";
-
-        if (preg_match('/^[a-fA-F0-9]+$/', $buildstring['tlstylecolour'])) {
-            // this is a fix for supporting legacy hex values that do not have '#' at start
-            $return_value .= '#';
-        }
-
-        $return_value .= $buildstring['tlstylecolour'] . ';';
-
-        return $return_value;
-    } else {
-        return '';
-    }
-}
-
 /*
  * Delete a tile from the dash for all users in a group
 *
@@ -1839,17 +1616,26 @@ function render_upgrade_available_tile($user)
         return;
     }
 
-    if (!is_resourcespace_upgrade_available()) {
+    $newest_version = is_resourcespace_upgrade_available();
+    if ($newest_version === false) {
         return;
     }
     ?>
     <a href="https://www.resourcespace.com/versions"
-       target="_blank"
-       class="HomePanel DashTile"
-       id="upgrade_available_tile">
-        <div id="contents_user_tile_upgrade_available" class="HomePanelIN HomePanelDynamicDash">
-            <h2><?php echo escape($GLOBALS['lang']['upgrade_available_title']); ?></h2>
-            <p><?php echo escape($GLOBALS['lang']['upgrade_available_text']); ?></p>
+        target="_blank"
+        class="HomePanel DashTile"
+        id="upgrade_available_tile">
+        <div class="HomePanelIN HomePanelDynamicDash">
+            <div class="tile-special-content">
+                <div class="tile-special-icon tile-upgrade-icon">
+                    <?php echo escape($newest_version); ?>
+                    <span class="tile-pill"><i class="icon-circle-arrow-up"></i></span>
+                </div>
+            </div>
+            <div class="tile-desc">
+                <h2><?php echo escape($GLOBALS['lang']['upgrade_available_title']); ?></h2>
+                <p><?php echo escape($GLOBALS['lang']['upgrade_available_text']); ?></p>
+            </div>
         </div>
     </a>
     <?php
@@ -1868,58 +1654,77 @@ function render_upgrade_available_tile($user)
  *                    - 'no_edit' (bool): Flag indicating if the tile is non-editable.
  *                    - 'url' (string|null): Optional URL for the tile's link.
  * @param string $tile_id The unique HTML ID of the tile used for identifying elements in the toolbar.
- * @return void Outputs HTML and JavaScript directly to the page for the tile toolbar.
+ * @param bool   $display_counter If true then a counter pill will be rendered opposite the dash tile actions
  */
-function generate_dash_tile_toolbar(array $tile, $tile_id)
+function generate_dash_tile_toolbar(array $tile, string $tile_id, bool $display_counter = false): void
 {
-    global $baseurl_short, $lang, $managed_home_dash;
+    global $baseurl_short, $lang, $managed_home_dash, $pagename;
 
     $editlink = $baseurl_short . "pages/dash_tile.php?edit=" . (int) $tile['ref'];
-
-    if (!$managed_home_dash && (checkPermission_dashadmin() || checkPermission_dashuser())) {
-        ?>
-        <div id="DashTileActions_<?php echo substr($tile_id, 18); ?>" class="DashTileActions"  style="display:none;">
-            <div class="tool dash-delete_<?php echo substr($tile_id, 18); ?>">
-                <a href="#">
-                    <span><?php echo LINK_CARET . escape($lang['action-delete']); ?></span>
-                </a>
-            </div>
-            <?php
-            if ((checkPermission_dashadmin() || (isset($tile['all_users']) && $tile['all_users'] == 0)) && !(isset($tile['no_edit']) && $tile['no_edit'])) {
+    ?>
+    <div id="DashTileActions_<?php echo escape(substr($tile_id, 18)); ?>" class="DashTileActions">
+        <?php
+        if (!$managed_home_dash && (checkPermission_dashadmin() || checkPermission_dashuser())) {
+            if ($pagename !== 'dash_tile_preview') {
+                if ((checkPermission_dashadmin() || (isset($tile['all_users']) && $tile['all_users'] == 0)) && !(isset($tile['no_edit']) && $tile['no_edit'])) {
+                    ?>
+                        <div class="tool edit" title="<?php echo escape($lang["editdashtile"]); ?>">
+                            <a href="<?php echo $editlink ?>" onClick="return CentralSpaceLoad(this,true);">
+                                <i class="icon-pencil"></i>
+                            </a>
+                        </div>
+                    <?php
+                }
                 ?>
-                <div class="tool edit">
-                    <a href="<?php echo $editlink ?>" onClick="return CentralSpaceLoad(this,true);">
-                        <span><?php echo LINK_CARET . escape($lang['action-edit']); ?></span>
+                <div class="tool dash-delete_<?php echo escape(substr($tile_id, 18)); ?>" title="<?php echo escape($lang["dashtiledelete"]); ?>">
+                    <a href="#">
+                        <i class="icon-trash-2"></i>
                     </a>
                 </div>
                 <?php
             }
+        }
+        if ($display_counter) {
             ?>
-        </div>
-        <?php
+            <p class="tile_corner_box DisplayNone"></p>
+            <script>
+                jQuery(document).ready(function() {
+                    const TILE_ID = <?php echo encode_js_value($tile_id); ?>;
+                    const SHOW_RESOURCE_COUNT = <?php echo $tile['resource_count'] ? 'true' : 'false'; ?>;
+                    api('get_dash_search_data', {link: <?php echo encode_js_value($tile['link']); ?>}, function(response) {
+                        let tile_corner_box = jQuery('div#' + TILE_ID + ' p.tile_corner_box');
+                        if (SHOW_RESOURCE_COUNT) {
+                            let count_string = response.count + ' ' + (response.count > 1 ? '<?php echo escape($lang['items']); ?>': '<?php echo escape($lang['item']); ?>');
+                            tile_corner_box.html(count_string);
+                            tile_corner_box.removeClass('DisplayNone');
+                        } else if(response.count == 0) {
+                            jQuery('div#' + TILE_ID + ' p.no_resources').removeClass('DisplayNone');
+                        }
+                    },
+                    <?php echo generate_csrf_js_object('get_dash_search_data'); ?>,
+                    );
+                })
+            </script>
+            <?php
+        }
+        ?>
+    </div>
+    <?php
+    if ($pagename === 'dash_tile_preview') {
+        return;
     }
     ?>
-
     <script>
         jQuery(document).ready(function() {
             if (pagename == "home") {
                 var tileid = "<?php echo (int) $tile["ref"]; ?>"; //Needs to be set for delete functionality
                 var usertileid = "<?php echo escape(substr($tile_id, 18)); ?>" //Needs to be set for delete functionality
                 var usertileidname = "#<?php echo escape(substr($tile_id, 9)); ?>";
-                var dashtileactionsid = "#DashTileActions_" + usertileid;
+                var dashtileactionsid = "#DashTileActions_" + usertileid + " > .tool";
                 var deletetileid = ".dash-delete_" + usertileid;
                 var editlink = "<?php echo isset($tile["url"]) ? $tile["url"] : ""; ?>";
                 var tilehref; //Used to switch off and on tile link to stop issue clicking on tool bar but opening tile link
                 var tileonclick; //Used to switch off and on tile link to stop issue clicking on tool bar but opening tile link
-        
-                jQuery(usertileidname).hover(
-                    function(e) {
-                        jQuery(dashtileactionsid).stop(true, true).slideDown();
-                    },
-                    function(e) {
-                        jQuery(dashtileactionsid).stop(true, true).slideUp();
-                    }
-                );
         
                 jQuery(dashtileactionsid).hover(
                     function(e) {
@@ -2000,6 +1805,37 @@ function dash_tile_featured_collection_get_resources($c, array $ctx)
     return $resources;
 }
 
+function dash_tile_featured_collection_get_top_resources() 
+{
+    global $view_title_field;
+
+    $resources = ps_array("SELECT 
+        DISTINCT r.ref `value`
+            FROM collection_resource cr 
+                JOIN resource r ON r.ref = cr.resource
+                JOIN collection c ON c.ref = cr.collection
+            WHERE c.type = ? 
+            ORDER BY r.hit_count DESC LIMIT 500
+        ", ['i', COLLECTION_TYPE_FEATURED], "schema");
+    $resource_data = get_resource_data_batch($resources);
+    $count = 0;
+    $return = [];
+    foreach ($resource_data as $resource)  {
+        if (resource_download_allowed($resource['ref'], 'thm', $resource['resource_type'])) {
+            $count++;
+            $return[] = [
+                'ref'                           => $resource['ref'],
+                'title'                         => get_data_by_field($resource['ref'], $view_title_field),
+                'resource_type'                 => $resource['resource_type']
+            ];
+        }
+        if ($count >=3) {
+            break;
+        } 
+    }
+    return $return;
+}
+
 /**
  * Validate the type of dash tile and check that the style provided is valid for it.
  *
@@ -2070,7 +1906,15 @@ function validate_build_url($buildurl)
                         foreach ($tile_styles as $tile_type_style) {
                             $all_tile_styles = array_merge($all_tile_styles, $tile_type_style);
                         }
-                        if (!in_array($value, $all_tile_styles)) {
+                        if (
+                            !in_array($value, $all_tile_styles) 
+                            && 
+                                (
+                                    $value !== ""
+                                    && isset($build_url_parts_param['tltype'])
+                                    && $build_url_parts_param['tltype'] == 'ftxt'
+                                )
+                            ) {
                             $buildurl = "";
                         }
                         break;
@@ -2098,6 +1942,7 @@ function validate_build_url($buildurl)
  */
 function tltype_srch_generate_js_for_background_and_count(array $tile, string $tile_id, int $tile_width, int $tile_height, int $promoted_image)
 {
+    global $lang, $baseurl_short;
     // Prevent function from running for the wrong tile type and style
     parse_str(parse_url($tile['url'] ?? '', PHP_URL_QUERY), $tile_meta);
     if (
@@ -2114,9 +1959,7 @@ function tltype_srch_generate_js_for_background_and_count(array $tile, string $t
 
     ?>
     <!-- Resource counter -->
-    <p class="no_resources DisplayNone"><?php echo escape($GLOBALS['lang']['noresourcesfound']); ?></p>
     <p class="tile_corner_box DisplayNone">
-        <span aria-hidden="true" class="icon-copy"></span>
     </p>
 
     <script>
@@ -2159,34 +2002,53 @@ function tltype_srch_generate_js_for_background_and_count(array $tile, string $t
                             var size = height < TILE_HEIGHT ? ' height="100%"' : ' width="100%"';
                         }
 
-                        return '<img alt="' + resource.title + '" src="' + resource.url + '"' + size + ' class="thmbs_tile_img AbsoluteTopLeft">';
+                        return '<img alt="' + resource.title + '" src="' + resource.url + '"' + size + ' class="thmbs-tile-img">';
                     });
+
+                    // Tile background - resource(s) preview
+                    console.debug('preview_resources = %o', preview_resources);
+                    let tile_div = jQuery('div#' + TILE_ID);
+                    tile_div.find('[data-identifier="to-remove"]').remove();
+                    if (preview_resources.length > 0) {
+                        tile_div.prepend(preview_resources[0]);
+                    } else {
+                        tile_div.prepend(
+                            jQuery('<div>').addClass('tile-placeholder')
+                                .prepend(
+                                    jQuery('<div>').addClass('thumbs-tile-image')
+                                )
+                        )
+                    }
                 } else if (TILE_STYLE === 'multi') {
                     preview_resources = response.images
                         .map(function(resource, index, resources_list) {
-                            let tile_working_space = <?php echo $tile['tlsize'] == '' ? 140 : 280; ?>;
-                            let gap = tile_working_space / resources_list.length;
-                            let space = index * gap;
-                            let style = 'left: ' + (space * 1.5) + 'px;'
-                                + ' transform: rotate(' + (20 - (index * 12)) + 'deg);';
-
-                            return '<img alt="' + resource.title + '" src="' + resource.url + '" style="' + style + '">';
+                            return '<img alt="' + resource.title + '" src="' + resource.url + '">';
                         })
-                        // images will be prepended to the tile container so reverse the order so that the layout ends up as 
-                        // expected (from left to right, each preview on top of the previous one)
-                        .reverse();
-                } else {
-                    // Blank style
-                    preview_resources = [];
-                }
-
-                // Tile background - resource(s) preview
-                console.debug('preview_resources = %o', preview_resources);
-                if (preview_resources.length > 0) {
+                    let use_placeholder = false;
+                    while(preview_resources.length < 3) {
+                        if (preview_resources.length == 0) {
+                            use_placeholder = true;
+                        }
+                        preview_resources.push(jQuery('<div>'));
+                    }
+                    console.debug('preview_resources = %o', preview_resources);
                     let tile_div = jQuery('div#' + TILE_ID);
-
-                    for (let i = 0; i < preview_resources.length; i++) {
-                        tile_div.prepend(preview_resources[i]);
+                    tile_div.find('[data-identifier="to-remove"]').remove();
+                    for (let i = 0; i<= 2; i++) {
+                        if (i == 0) {
+                            if (use_placeholder == false) {
+                                tile_div.find('.tile-multi').prepend(preview_resources[i]);
+                            } else { 
+                                tile_div.find('.tile-multi').prepend(
+                                    jQuery('<div>').addClass('tile-placeholder')
+                                        .prepend(
+                                            jQuery('<div>').addClass('thumbs-tile-image')
+                                        )
+                                );
+                            }
+                        } else {
+                            tile_div.find('.tile-sub-multi').append(preview_resources[i]);
+                        }
                     }
                 }
 
@@ -2194,8 +2056,8 @@ function tltype_srch_generate_js_for_background_and_count(array $tile, string $t
                 let tile_corner_box = jQuery('div#' + TILE_ID + ' p.tile_corner_box');
 
                 if (SHOW_RESOURCE_COUNT) {
-                    tile_corner_box.find('.DisplayResourceCount').remove();
-                    tile_corner_box.append(`<span class="DisplayResourceCount">${response.count}</span>`);
+                    let count_string = response.count + ' ' + (response.count > 1 ? '<?php echo escape($lang['items']); ?>': '<?php echo escape($lang['item']); ?>');
+                    tile_corner_box.html(count_string);
                     tile_corner_box.removeClass('DisplayNone');
                 } else if(response.count == 0) {
                     jQuery('div#' + TILE_ID + ' p.no_resources').removeClass('DisplayNone');
@@ -2224,7 +2086,7 @@ function tltype_srch_generate_js_for_background_and_count(array $tile, string $t
  */
 function get_dash_search_data($link = '', $promimg = 0)
 {
-    global $search_all_workflow_states, $view_title_field, $lang;
+    global $search_all_workflow_states, $view_title_field, $lang, $baseurl;
 
     // Maximum number of preview images to show for a dash tile
     $dash_tile_preview_count = 4;

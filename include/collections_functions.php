@@ -2674,7 +2674,7 @@ function allow_multi_edit($collection, $collectionid = 0)
 function get_featured_collection_resources(array $c, array $ctx)
 {
     global $usergroup, $userref, $CACHE_FC_RESOURCES, $themes_simple_images,$collection_allow_not_approved_share;
-    global $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS, $theme_images_number;
+    global $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS;
 
     if (!isset($c["ref"]) || !is_int((int) $c["ref"])) {
         return array();
@@ -2755,7 +2755,7 @@ function get_featured_collection_resources(array $c, array $ctx)
         elseif (in_array($c["thumbnail_selection_method"], [$FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["most_popular_image"],$FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["most_recent_image"]]) && is_null($limit)) {
             $limit = 1;
         } elseif ($c["thumbnail_selection_method"] == $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["most_popular_images"] && is_null($limit)) {
-            $limit = $theme_images_number;
+            $limit = THEME_IMAGES_NUMBER;
         }
     }
 
@@ -2940,15 +2940,13 @@ function get_featured_collection_categ_sub_fcs(array $c, array $ctx = array())
 * Get preview URLs for a list of resource IDs
 *
 * @param array  $resource_refs  List of resources
-* @param string $size           Preview size
 *
 * @return array List of resource refs and corresponding images URLs
 */
-function generate_featured_collection_image_urls(array $resource_refs, string $size)
+function generate_featured_collection_image_urls(array $resource_refs)
 {
-    global $baseurl;
-
     $images = array();
+    $size = "pre";
 
     $refs_list = array_filter($resource_refs, 'is_numeric');
     if (empty($refs_list)) {
@@ -2964,10 +2962,8 @@ function generate_featured_collection_image_urls(array $resource_refs, string $s
         if (file_exists(get_resource_path($ref, true, $size, false)) && resource_download_allowed($ref, $size, $resource_type, -1, true)) {
             $images[] = ["ref" => $ref, "path" => get_resource_path($ref, false, $size, false)];
         }
-    }
-
-    if (count($images) == 0 && count($refs_rtype) != 0) {
-        $images[] = $baseurl . '/gfx/no_preview/default.png';
+        // Use thm size for images after first to reduce loading times
+        $size = "thm";
     }
 
     return $images;
@@ -3984,8 +3980,7 @@ function compile_collection_actions(array $collection_data, $top_actions, $resou
 
     if (!collection_is_research_request($collection_data['ref']) || !checkperm('r')) {
         if (
-            !$top_actions && checkperm('s')
-            && $pagename === 'collections'
+            checkperm('s')
             && isset($collection_data['request_feedback'])
             && $collection_data['request_feedback']
         ) {
@@ -4537,7 +4532,7 @@ function collection_download_process_text_file(array $dl_data, int $ref, string 
             $fields = get_resource_field_data($ref, false, true, null, true);
         }
         $commentdata = get_collection_resource_comment($ref, $dl_data['collection']);
-        $fields_count = count($fields);
+        $fields_count = count($fields ?: []);
         if ($fields_count > 0) {
             $hook_replace_text = hook('replacecollectiontext', '', array($text, $sizetext, $filename, $ref, $fields, $fields_count, $commentdata));
             if (!$hook_replace_text) {
@@ -4551,10 +4546,10 @@ function collection_download_process_text_file(array $dl_data, int $ref, string 
                         $text .= wordwrap('* ' . $title . ': ' . i18n_get_translated($value) . "\r\n", 65);
                     }
                 }
-                if (trim((string)$commentdata['comment']) != '') {
+                if (trim((string) ($commentdata['comment'] ?? '')) != '') {
                     $text .= wordwrap($GLOBALS["lang"]['comment'] . ': ' . $commentdata['comment'] . "\r\n", 65);
                 }
-                if (trim((string)$commentdata['rating']) != '') {
+                if (trim((string) ($commentdata['rating'] ?? '')) != '') {
                     $text .= wordwrap($GLOBALS["lang"]['rating'] . ': ' . $commentdata['rating'] . "\r\n", 65);
                 }
                 $text .= "-----------------------------------------------------------------\r\n\r\n";
@@ -5856,7 +5851,26 @@ function compute_featured_collections_access_control()
         return $CACHE_FC_ACCESS_CONTROL;
     }
 
-    $all_fcs = ps_query("SELECT ref, parent FROM collection WHERE `type` = ?", ['i', COLLECTION_TYPE_FEATURED], "featured_collections");
+    $mysql_version = ps_query('SELECT LEFT(VERSION(), 3) AS ver');
+    if (version_compare($mysql_version[0]['ver'], '8.0', '>=')) {
+        $all_fcs = ps_query("
+        WITH RECURSIVE cte(ref,parent, level) AS
+        (
+            SELECT  ref, parent, 1 AS level
+            FROM  collection
+                WHERE parent IS NULL AND type = ?
+        UNION ALL
+            SELECT  c.ref, c.parent, level + 1 AS LEVEL
+            FROM  collection c
+            INNER JOIN  cte
+                ON  cte.ref = c.parent
+        )
+        SELECT cte.ref, cte.parent FROM cte ORDER BY level
+        ", ['i', COLLECTION_TYPE_FEATURED], "featured_collections");
+    } else {
+        $all_fcs = ps_query("SELECT ref, parent FROM collection WHERE `type` = ?", ['i', COLLECTION_TYPE_FEATURED], "featured_collections");
+    }
+
     $all_fcs_rp = reshape_array_by_value_keys($all_fcs, 'ref', 'parent');
     // Set up arrays to store permitted/blocked featured collections
     $includerefs = array();
@@ -6715,6 +6729,7 @@ function process_collection_download(array $dl_data): array
     $dl_data['filenames'] = []; // Set up an array to store the filenames as they are found (to analyze dupes)
     $dl_data['used_resources'] = [];
     $dl_data['subbed_original_resources'] = [];
+    $dl_data['available_sizes'] = [];
     $allsizes = get_all_image_sizes(true);
     $rescount = count($collection_resources);
 
@@ -6747,6 +6762,11 @@ function process_collection_download(array $dl_data): array
         $use_watermark = check_use_watermark();
         $subbed_original = false;
 
+        // Do not download permanently deleted resources
+        if (get_resource_data($collection_resources[$n]['ref']) === false) {
+            debug('Collection download : skipping resource ID ' . $ref . ' resource does not exist.');
+            continue;
+        }
         // Do not download resources without proper access level
         if ($access > 1) {
             debug('Collection download : skipping resource ID ' . $ref . ' user ID ' . $GLOBALS["userref"] . ' does not have access to this resource');
@@ -6816,6 +6836,11 @@ function process_collection_download(array $dl_data): array
                     $dl_data['available_sizes'][$size_id][] = $ref;
                 }
             }
+        }
+
+        if (empty($dl_data['available_sizes'])) {
+            debug('Collection download : skipping resource ID ' . $ref . ' no sizes available');
+            continue;
         }
 
         // Check which size to use
@@ -7037,7 +7062,9 @@ function process_collection_download(array $dl_data): array
     if (0 < $count_data_only_types) {
         collection_download_process_data_only_types($dl_data, $zip);
     }
-    collection_download_process_summary_notes($dl_data, $filename, $zip);
+    if (isset($filename) && "" != $filename) {
+        collection_download_process_summary_notes($dl_data, $filename, $zip);
+    }
     if ($include_csv_file == 'yes') {
         collection_download_process_csv_metadata_file($dl_data, $zip);
     }

@@ -15,9 +15,6 @@ if ((is_array($k) || trim($k) === '') && getval('noauth', '') != true) {
 
 header("Content-type: text/css");
 
-global $header_colour_style_override, $header_link_style_override, $home_colour_style_override,
-$collection_bar_background_override, $collection_bar_foreground_override, $button_colour_override;
-
 // Dark mode styling
 if (isset($user_pref_appearance) && !(isset($high_contrast_mode) && $high_contrast_mode)) {
     if ($user_pref_appearance == "device") {
@@ -50,7 +47,7 @@ if (isset($user_pref_appearance) && !(isset($high_contrast_mode) && $high_contra
             --colour-surface-900: var(--colour-neutral-100);
             --colour-surface-1000: var(--colour-neutral-50);            
             --colour-surface-breadcrumb-background: var(--colour-surface-200);
-            --colour-surface-card-accent: var(---colour-neutral-800);
+            --colour-surface-card-accent: var(--colour-neutral-800);
             --colour-surface-card-content-background: var(--colour-neutral-850);
             --colour-surface-card-icon: var(--colour-neutral-500);
             --colour-surface-card-icon-background: var(--colour-neutral-800);
@@ -61,6 +58,7 @@ if (isset($user_pref_appearance) && !(isset($high_contrast_mode) && $high_contra
             --colour-surface-mode-surface: var(--colour-neutral-850);
             --colour-surface-page-title-background: var(--colour-neutral-850);
             --colour-surface-uploader-background: var(--colour-surface-200);
+            --colour-surface-view-background: var(--colour-surface-100);
 
             /* Colours - Typography - Dark */
             --colour-typography-50: var(--colour-neutral-1000);
@@ -89,11 +87,14 @@ if (isset($user_pref_appearance) && !(isset($high_contrast_mode) && $high_contra
             --form-form-required-stroke: var(--colour-neutral-950);
             --form-tooltip-background: var(--colour-surface-mode-surface);
             --form-tooltip-stroke: var(--form-field-border);
+
+            /* Colours feedback - Dark */
+            --colour-feedback-warning-50: var(--colour-neutral-1000);
+            --colour-feedback-warning-200: var(--colour-feedback-warning-lightest);
         }
 
         body, html {
             color: white;
-            background: #262626;
         }
         h1, h2 {
             color: white;
@@ -328,7 +329,7 @@ if (isset($user_pref_appearance) && !(isset($high_contrast_mode) && $high_contra
         }
         [data-uppy-theme=dark] .uppy-StatusBar.is-waiting .uppy-StatusBar-actionBtn--upload:hover,
         [data-uppy-theme=dark] .uppy-StatusBar.is-waiting .uppy-StatusBar-actionBtn--upload {
-            background-color: #1988d7;
+            background-color: var(--colour-brand-primary-default);
         }
         .lockedQuestion {
             background-color: #404040;
@@ -405,7 +406,6 @@ if (isset($user_pref_appearance) && !(isset($high_contrast_mode) && $high_contra
             color: white;
         }
         .FeaturedSimpleTile {
-            background: white;
             color: white;  
         }
         .FeaturedSimpleTile.FullWidth {
@@ -490,6 +490,14 @@ if (isset($user_pref_appearance) && !(isset($high_contrast_mode) && $high_contra
             border: 1px solid var(--colour-colour-dark-alternates-red);
         }
     
+        .select2-selection.select2-selection--multiple,
+        .field-input select {
+            background-image: url(data:image/svg+xml;base64,PHN2ZyBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1jaGV2cm9uLWRvd24taWNvbiBsdWNpZGUtY2hldnJvbi1kb3duIiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS13aWR0aD0iMiIgdmVyc2lvbj0iMS4xIiB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0ibTYgOSA2IDYgNi02IiBzdHJva2U9IiNBREIwQUIiLz48L3N2Zz4=);
+        }
+
+        .select2-selection.select2-selection--multiple[aria-expanded="true"] {
+            background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWNoZXZyb24tdXAtaWNvbiBsdWNpZGUtY2hldnJvbi11cCI+PHBhdGggZD0ibTE4IDE1LTYtNi02IDYiIHN0cm9rZT0iI0FEQjBBQiIvPjwvc3ZnPg==);
+        }
         <?php
     }
 
@@ -498,76 +506,6 @@ if (isset($user_pref_appearance) && !(isset($high_contrast_mode) && $high_contra
         }
         <?php
     }
-}
-
-# Override the header background colour
-if (isset($header_colour_style_override) && $header_colour_style_override != '') { ?>
-    #Header, #OverFlowLinks, #LoginHeader {
-        background: <?php echo $header_colour_style_override; ?>;
-    } <?php
-}
-
-# Override the header link colour
-if (isset($header_link_style_override) && $header_link_style_override != '') { ?>
-    #HeaderNav1, #HeaderNav1 li a, #HeaderNav2 li a, #HiddenLinks li.HeaderLink a {
-        color: <?php echo $header_link_style_override; ?>;
-    }
-    #HeaderNav2 li {
-        border-color: <?php echo $header_link_style_override; ?>;
-    }
-    #HeaderNav1 li.UploadButton a {
-        color: #FFFFFF;
-    } <?php
-}
-
-# Override home UI elements colour (intro text, dash tiles, simple search)
-if (isset($home_colour_style_override) && $home_colour_style_override != '') { ?>
-    #SearchBox, #HomeSiteText.dashtext, .HomePanelIN, #BrowseBar, #NewsPanel.BasicsBox, #remote_assist #SearchBoxPanel,
-    .SearchBarTab.SearchBarTabSelected {
-        background: <?php echo $home_colour_style_override; ?>;
-    } <?php
-}
-
-# Override the collection bar background colour
-if (isset($collection_bar_background_override) && $collection_bar_background_override != '') { ?>
-    .CollectBack {
-        background: <?php echo $collection_bar_background_override; ?>;
-    } <?php
-}
-
-/**
- * Override the collection bar foreground colour
- *
- * optgroup and option background-color set to #474747 for consistency across platforms as
- * Firefox/Windows does not recognise rgb() colour properties for optgroup element
- * */
-
-if (isset($collection_bar_foreground_override) && $collection_bar_foreground_override != '') { ?>
-    .CollectionPanelShell, #CollectionDiv select {
-        background-color: <?php echo $collection_bar_foreground_override; ?>;
-    }
-    #CollectionDiv option, #CollectionDiv optgroup {
-        font-style:normal;
-        background-color: #474747;
-        color: #fff;
-    } <?php
-}
-
-// Override the button colour
-if (isset($button_colour_override) && $button_colour_override != '') { ?>
-    button,
-    input[type=submit],
-    input[type=button],
-    .RecordPanel .RecordDownloadSpace .DownloadDBlend a,
-    .UploadButton a,
-    .uppy-StatusBar-actionBtn,
-    .uppy-Dashboard-browse,
-    .uppy-StatusBar.is-waiting .uppy-StatusBar-actionBtn--upload,
-    .uppy-StatusBar.is-waiting .uppy-StatusBar-actionBtn--upload:hover,
-    .uppy-DashboardContent-back, .uppy-DashboardContent-back:focus,
-    .uppy-DashboardContent-addMore, .uppy-DashboardContent-addMore:focus {
-        background-color: <?php echo $button_colour_override; ?>;
-    } <?php
 }
 
 // Apply user uploaded custom font
@@ -621,7 +559,7 @@ if (isset($high_contrast_mode) && $high_contrast_mode) { ?>
     .Listview tr:last-child {
         border-bottom: 0;
     }
-    #SearchBox, #HomeSiteText.dashtext, .HomePanelIN, .PopupCategoryTree, #BrowseBar {
+    #SearchBox, #HomeSiteText.dashtext, .HomePanelIN, .PopupCategoryTree {
         background: black;
     }
     .SearchBarTab.SearchBarTabSelected {
@@ -729,10 +667,6 @@ if (isset($high_contrast_mode) && $high_contrast_mode) { ?>
     select, .sp-replacer {
         background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMjIiIGhlaWdodD0iMTMiIHZlcnNpb249IjEuMSIgdmlld0JveD0iMCAwIDIyIDEzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgLTQpIiBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxyZWN0IHk9IjIiIHdpZHRoPSIyMiIgaGVpZ2h0PSIxMSIvPjxwb2x5bGluZSB0cmFuc2Zvcm09InJvdGF0ZSg0NSA2LjAzNiA1LjAzNikiIHBvaW50cz0iOS41OTYgMS40NzUgOS41OTYgOC41OTYgMi40NzUgOC41OTYiIHN0cm9rZT0iIzAwMDAwNCIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9nPjwvc3ZnPgo=);
     }
-    .CollectBack {
-        background: black;
-        color: white;
-    }
     .prevLink, .nextLink, .prevPageLink, .nextPageLink {
         padding: 2px 5px;
         border-radius: 3px;
@@ -827,13 +761,8 @@ if (isset($high_contrast_mode) && $high_contrast_mode) { ?>
         text-decoration: underline;
     } <?php
 }
+?>
 
-// Simple Search pills using jQuery tag editor
-if ($simple_search_pills_view) { ?>
-    .search-icon, .search-icon:hover, .search-icon:active {
-        background-color: #ffffff00;
-        margin-top: -36px;
-        margin-left: 221px;
-    } <?php
+:root {
+--slideshow-photo-delay: <?php echo (int) $slideshow_photo_delay . 's'; ?> 
 }
-

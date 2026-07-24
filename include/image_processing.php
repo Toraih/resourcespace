@@ -665,9 +665,12 @@ function extract_exif_comment($ref, $extension = "")
             $metadata['STRIPPEDFILENAME'] = strip_extension($metadata['FILENAME']);
         }
 
+        $location_set = false;
         # Geolocation Metadata Support
         if (!$disable_geocoding && $dec_long != 0 && $dec_lat != 0) {
             ps_query("UPDATE resource SET geo_long= ?,geo_lat= ? WHERE ref= ?", ['d', $dec_long, 'd', $dec_lat, 'i', $ref]);
+            update_geolocation_fields($ref, [$dec_lat, $dec_long]);
+            $location_set = true;
         }
 
         # Update portrait_landscape_field (when reverting metadata this was getting lost)
@@ -736,6 +739,78 @@ function extract_exif_comment($ref, $extension = "")
                         }
                     }
 
+                    if ($read_from[$i]["geomapping"] > 0) {
+                        if ($location_set) {
+                            debug("EXIF - location field set from Geolocation");
+                            continue;
+                        }
+
+                        if ($read_from[$i]["geomapping"] == FIELD_GEO_LOCATION::latitude->value) {
+                            // Latitude field, use decimal values
+                            if (preg_match("/^(?<degrees>\d+) deg (?<minutes>\d+)' (?<seconds>\d+\.?\d*)\"/", $value, $latitude)) {
+                                $dec_lat = $latitude['degrees'] + ($latitude['minutes'] / 60) + ($latitude['seconds'] / (60 * 60));
+                                if (strpos($value, 'S') !== false) {
+                                    $dec_lat = -1 * $dec_lat;
+                                }
+                                $value = $dec_lat;
+                            }
+
+                            if (
+                                !is_float_loose($value) || $value === false
+                                || (float) $value > 90 || (float) $value < -90
+                            ) {
+                                debug("EXIF - invalid latitude value: " . $value);
+                                continue;
+                            }
+                        } elseif ($read_from[$i]["geomapping"] == FIELD_GEO_LOCATION::longitude->value) {
+                            // Longitude field, use decimal values
+                            if (preg_match("/^(?<degrees>\d+) deg (?<minutes>\d+)' (?<seconds>\d+\.?\d*)\"/", $value, $longitude)) {
+                                $dec_long = $longitude['degrees'] + ($longitude['minutes'] / 60) + ($longitude['seconds'] / (60 * 60));
+                                if (strpos($value, 'W') !== false) {
+                                    $dec_long = -1 * $dec_long;
+                                }
+                                $value = $dec_long;
+                            }
+
+                            if (
+                                !is_float_loose($value) || $value === false
+                                || (float) $value > 180 || (float) $value < -180
+                            ) {
+                                debug("EXIF - invalid latitude value: " . $value);
+                                continue;
+                            }
+                        } elseif ($read_from[$i]["geomapping"] == FIELD_GEO_LOCATION::both->value) {
+                            // Longitude field, use decimal values
+                            $pattern = "/(?<degrees>\d+) deg (?<minutes>\d+)' (?<seconds>\d+\.?\d*)/";
+                            if (preg_match_all($pattern, $value, $matches, PREG_SET_ORDER) && count($matches) == 2) {
+                                $dec_lat = $matches[0]['degrees'] + ($matches[0]['minutes'] / 60) + ($matches[0]['seconds'] / (60 * 60));
+                                $dec_long = $matches[1]['degrees'] + ($matches[1]['minutes'] / 60) + ($matches[1]['seconds'] / (60 * 60));
+                                if (strpos($value, 'S') !== false) {
+                                    $dec_lat = -1 * $dec_lat;
+                                }
+                                if (strpos($value, 'W') !== false) {
+                                    $dec_long = -1 * $dec_long;
+                                }
+                                $value = round($dec_lat, 6) . ", " . round($dec_long, 6);
+                            }
+
+                            $pattern = '/
+                                ^
+                                (-?\d{1,3}(?:\.\d+)?) # Latitude capture
+                                ,\s*                  # Comma + whitespace
+                                (-?\d{1,3}(?:\.\d+)?) # Longitude capture
+                                $
+                                /x';
+                            if (
+                                !preg_match($pattern, $value) || $value === false
+                                || (float) $dec_lat > 90 || (float) $dec_lat < -90
+                                || (float) $dec_long > 180 || (float) $dec_long < -180
+                            ) {
+                                debug("EXIF - invalid location value: " . $value);
+                                continue;
+                            }
+                        }
+                    }
                     # Read the data.
                     if ($read) {
                         if ($read_from[$i]['exiftool_filter'] != "") {
@@ -1074,19 +1149,22 @@ function iptc_return_utf8($text)
  * resizing with ImageMagick or GD library, generating checksums, and setting file attributes.
  * If the file size exceeds a specified limit, it can queue the preview generation as an offline job.
  *
- * @param int $ref The resource ID for which previews are generated.
- * @param bool $thumbonly (optional) If `true`, only the thumbnail will be generated. Default is `false`.
- * @param string $extension (optional) The file extension for the resource. Default is "jpg".
- * @param bool $previewonly (optional) If `true`, only preview images will be generated. Default is `false`.
- * @param bool $previewbased (optional) If `true`, previews are generated based on existing previews rather than original files. Default is `false`.
- * @param int $alternative (optional) If set, specifies an alternative file ID to generate previews for. Default is `-1`.
- * @param bool $ignoremaxsize (optional) If `true`, the file size limit for preview generation is ignored. Default is `false`.
- * @param bool $ingested (optional) If `true`, marks the resource as already ingested into the system. Default is `false`.
- * @param bool $checksum_required (optional) If `true`, generates a checksum for the file. Default is `true`.
- * @param array $onlysizes (optional) Specifies an array of preview sizes to generate. If empty, all sizes are generated.
- * @return bool Returns `true` if previews were generated successfully; `false` otherwise.
+ * @param  int     $ref                 The resource ID for which previews are generated.
+ * @param  bool    $thumbonly           (optional) If `true`, only the thumbnail will be generated. Default is `false`.
+ * @param  string  $extension           (optional) The file extension for the resource. Default is "jpg".
+ * @param  bool    $previewonly         (optional) If `true`, only preview images will be generated. Default is `false`.
+ * @param  bool    $previewbased        (optional) If `true`, previews are generated based on existing previews rather than original files. Default is `false`.
+ * @param  int     $alternative         (optional) If set, specifies an alternative file ID to generate previews for. Default is `-1`.
+ * @param  bool    $ignoremaxsize       (optional) If `true`, the file size limit for preview generation is ignored. Default is `false`.
+ * @param  bool    $ingested            (optional) If `true`, marks the resource as already ingested into the system. Default is `false`.
+ * @param  bool    $checksum_required   (optional) If `true`, generates a checksum for the file. Default is `true`.
+ * @param  array   $onlysizes           (optional) Specifies an array of preview sizes to generate. If empty, all sizes are generated.
+ * @param  bool    $no_tiles            (optional) Set to true to prevent creation of preview tiles (if enabled). Tiles would not be created where the preview
+ *                                      source is a file created by preview_preprocessing.php.
+ * 
+ * @return  bool   Returns `true` if previews were generated successfully; `false` otherwise.
  */
-function create_previews($ref, $thumbonly = false, $extension = "jpg", $previewonly = false, $previewbased = false, $alternative = -1, $ignoremaxsize = false, $ingested = false, $checksum_required = true, $onlysizes = array())
+function create_previews($ref, $thumbonly = false, $extension = "jpg", $previewonly = false, $previewbased = false, $alternative = -1, $ignoremaxsize = false, $ingested = false, $checksum_required = true, $onlysizes = array(), bool $no_tiles = false)
 {
     global $imagemagick_path, $preview_generate_max_file_size, $previews_allow_enlarge, $lang, $ffmpeg_preview_gif;
     global $previews_allow_enlarge, $offline_job_queue, $preview_no_flatten_extensions, $preview_keep_alpha_extensions;
@@ -1197,7 +1275,7 @@ function create_previews($ref, $thumbonly = false, $extension = "jpg", $previewo
 
     if (in_array(strtolower($extension), ["jpg","jpeg","png"]) || (strtolower($extension) == "gif" && !$ffmpeg_preview_gif)) {
         if (isset($imagemagick_path)) {
-            return create_previews_using_im($ref, $thumbonly, $extension, $previewonly, $previewbased, $alternative, $ingested, $onlysizes);
+            return create_previews_using_im($ref, $thumbonly, $extension, $previewonly, $previewbased, $alternative, $ingested, $onlysizes, $no_tiles);
         } else {
             # ----------------------------------------
             # Use the GD library to perform the resize
@@ -1314,6 +1392,7 @@ function create_previews($ref, $thumbonly = false, $extension = "jpg", $previewo
             "previewonly" => $previewonly,
             "previewbased" => $previewbased,
             "ingested" => $ingested],
+            true
         );
     }
 
@@ -2195,7 +2274,10 @@ function AutoRotateImage($src_image, $ref = false)
     # from a non-ingested image to properly rotate a preview image
     global $imagemagick_path, $camera_autorotation_ext;
 
-    $src_image = safe_file_name($src_image);
+    if (!is_safe_basename($src_image)) {
+        return false;
+    }
+
     debug("AutoRotateImage(src_image = $src_image, ref = $ref)");
 
     if (!isset($imagemagick_path)) {
@@ -2280,7 +2362,7 @@ function AutoRotateImage($src_image, $ref = false)
 
         # we'll remove the exiftool created file copy (as a result of using -TagsFromFile)
         if (file_exists($new_image . '_original')) {
-            unlink(safe_file_name($new_image) . '_original');
+            unlink($new_image . '_original');
         }
     }
 
@@ -2536,6 +2618,11 @@ function upload_file_by_url(int $ref, bool $no_exif = false, bool $revert = fals
     }
 
     $upload_result = upload_file($ref, $no_exif, $revert, $autorotate, $file_path);   # Process as a normal upload...
+
+    if (!$upload_result && file_exists($file_path)) {
+        unlink($file_path);
+        debug("upload_file_by_url failed. Deleting temp file: $file_path");
+    }
     remove_empty_temp_directory($file_path);
 
     return $upload_result;
@@ -2604,7 +2691,7 @@ function delete_previews($resource, $alternative = -1)
         }
     }
 
-    if (in_array($extension, $ffmpeg_supported_extensions) || $extension == 'gif') {
+    if ($alternative === -1 && (in_array($extension, $ffmpeg_supported_extensions) || $extension == 'gif')) {
         remove_video_previews($resource);
     }
 
@@ -3279,7 +3366,12 @@ function start_previews(int $ref, string $extension = ""): int
 
     $minimal_previews = false;
     $resource_data = get_resource_data($ref, false);
-    delete_previews($resource_data);
+    $preview_based = false;
+    if (resource_has_preview_source($ref, $extension)) {
+        delete_previews($resource_data);   
+    } else {
+        $preview_based = true;
+    }
     if (trim($extension) == "") {
         $extension = $resource_data["file_extension"];
     }
@@ -3290,7 +3382,7 @@ function start_previews(int $ref, string $extension = ""): int
             'thumbonly' => false,
             'extension' => $resource_data["file_extension"],
             'previewonly' => false,
-            'previewbased' => false,
+            'previewbased' => $preview_based,
             'alternative' => -1,
             'ignoremaxsize' => true,
         ];
@@ -3314,7 +3406,7 @@ function start_previews(int $ref, string $extension = ""): int
                 false, 
                 in_array($extension, NON_PREVIEW_EXTENSIONS) ? 'jpg' : $extension, 
                 false, 
-                in_array($extension, NON_PREVIEW_EXTENSIONS), 
+                $preview_based || in_array($extension, NON_PREVIEW_EXTENSIONS), 
                 -1, 
                 true, 
                 $ingested, 
@@ -3332,7 +3424,7 @@ function start_previews(int $ref, string $extension = ""): int
         false, 
         in_array($resource_data["file_extension"], NON_PREVIEW_EXTENSIONS) ? 'jpg' : $resource_data["file_extension"],  
         false, 
-        in_array($resource_data["file_extension"], NON_PREVIEW_EXTENSIONS), 
+        $preview_based || in_array($resource_data["file_extension"], NON_PREVIEW_EXTENSIONS), 
         -1, 
         false, 
         $ingested);
@@ -3342,11 +3434,13 @@ function start_previews(int $ref, string $extension = ""): int
 /**
  * Get an array of preview size IDs to generate
  *
- * @param string $extension         File extension ('hpr' is only required for non-JPG images)
- * @param array $dimensions         Image source dimensions in format [width,height]
- * @param bool $thumbonly           Generate 'thm' and 'col' only
- * @param bool $previewonly         Generate 'scr', 'pre', 'thm' and 'col' only
- * @param array $onlysizes          Array of requested size IDs to generate
+ * @param  string   $extension     File extension ('hpr' is only required for non-JPG images)
+ * @param  array    $dimensions    Image source dimensions in format [width,height]
+ * @param  bool     $thumbonly     Generate 'thm' and 'col' only
+ * @param  bool     $previewonly   Generate 'scr', 'pre', 'thm' and 'col' only
+ * @param  array    $onlysizes     Array of requested size IDs to generate
+ * @param  bool     $no_tiles      Set to true to prevent creation of preview tiles (if enabled). Tiles would not be created where the preview
+ *                                 source is a file created by preview_preprocessing.php.
  *
  * @return array|bool   Array of size IDs or false on failure.
  *
@@ -3356,7 +3450,8 @@ function get_sizes_to_generate(
     array $dimensions,
     bool $thumbonly = false,
     bool $previewonly = false,
-    array $onlysizes = []
+    array $onlysizes = [],
+    bool $no_tiles = false
 ) {
     $sw = (int) ($dimensions[0] ?? 0);
     $sh = (int) ($dimensions[1] ?? 0);
@@ -3392,7 +3487,8 @@ function get_sizes_to_generate(
     );
 
     if (
-        (count($onlysizes) === 0 || in_array("tiles", $onlysizes))
+        !$no_tiles
+        && (count($onlysizes) === 0 || in_array("tiles", $onlysizes))
         && $GLOBALS["preview_tiles"]
         && $GLOBALS["preview_tiles_create_auto"]
         && !in_array($extension, config_merge_non_image_types())
@@ -3655,15 +3751,18 @@ function transform_apply_icc_profile(int $ref, string $original_file_path): arra
  * applying watermarks, handling color profiles, and managing alternative files.
  * The function includes extensive support for non-standard image formats and configurations.
  *
- * @param int $ref The resource ID for which previews are generated.
- * @param bool $thumbonly (optional) If `true`, only the thumbnail will be generated. Default is `false`.
- * @param string $extension (optional) The file extension for the resource. Default is "jpg".
- * @param bool $previewonly (optional) If `true`, only preview images will be generated. Default is `false`.
- * @param bool $previewbased (optional) If `true`, previews are generated based on existing previews rather than original files. Default is `false`.
- * @param int $alternative (optional) Specifies an alternative file ID to generate previews for, if any. Default is `-1`.
- * @param bool $ingested (optional) If `true`, marks the resource as already ingested into the system. Default is `false`.
- * @param array $onlysizes (optional) Specifies an array of preview sizes to generate. If empty, all sizes are generated.
- * @return bool Returns `true` if previews were generated successfully; `false` otherwise.
+ * @param  int     $ref            The resource ID for which previews are generated.
+ * @param  bool    $thumbonly      (optional) If `true`, only the thumbnail will be generated. Default is `false`.
+ * @param  string  $extension      (optional) The file extension for the resource. Default is "jpg".
+ * @param  bool    $previewonly    (optional) If `true`, only preview images will be generated. Default is `false`.
+ * @param  bool    $previewbased   (optional) If `true`, previews are generated based on existing previews rather than original files. Default is `false`.
+ * @param  int     $alternative    (optional) Specifies an alternative file ID to generate previews for, if any. Default is `-1`.
+ * @param  bool    $ingested       (optional) If `true`, marks the resource as already ingested into the system. Default is `false`.
+ * @param  array   $onlysizes      (optional) Specifies an array of preview sizes to generate. If empty, all sizes are generated.
+ * @param  bool    $no_tiles       (optional) Set to true to prevent creation of preview tiles (if enabled). Tiles would not be created where the preview
+ *                                 source is a file created by preview_preprocessing.php.
+ *
+ * @return  bool   Returns `true` if previews were generated successfully; `false` otherwise.
  */
 function create_previews_using_im(
     int $ref,
@@ -3673,7 +3772,8 @@ function create_previews_using_im(
     bool $previewbased = false,
     int $alternative = -1,
     bool $ingested = false,
-    array $onlysizes = []
+    array $onlysizes = [],
+    bool $no_tiles = false
 ): bool {
     global $keep_for_hpr,$imagemagick_path,$imagemagick_preserve_profiles,$imagemagick_quality,$default_icc_file;
     global $autorotate_no_ingest,$always_make_previews,$previews_allow_enlarge,$alternative_file_previews;
@@ -3756,7 +3856,7 @@ function create_previews_using_im(
         }
 
         $generateall = !($thumbonly || $previewonly || (count($onlysizes) > 0));
-        $ps = get_sizes_to_generate($extension, [$sw,$sh], $thumbonly, $previewonly, $onlysizes);
+        $ps = get_sizes_to_generate($extension, [$sw,$sh], $thumbonly, $previewonly, $onlysizes, $no_tiles);
         if (!$ps) {
             return false;
         }
@@ -4328,10 +4428,11 @@ function create_previews_using_im(
             create_image_alternatives(
                 $ref,
                 ["extension" => $extension,
-                "file" => $file,
+                "file" => $origfile,
                 "previewonly" => $previewonly,
                 "previewbased" => $previewbased,
                 "ingested" => $ingested],
+                true
             );
         }
         hook('afterpreviewcreation', '', array($ref, $alternative, $generateall));

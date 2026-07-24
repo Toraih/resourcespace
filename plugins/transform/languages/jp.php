@@ -83,3 +83,7 @@ $lang["cropper_preset_sizes"] = '事前定義されたサイズ';
 $lang["page-title_transform_collection_transform"] = 'リソースを変換する';
 $lang["page-title_transform_crop"] = 'リソースをトリミングする';
 $lang["page-title_transform_setup"] = '変換プラグインの設定';
+$lang["use_filename_as_title"] = 'ファイル名をタイトルとして使用';
+
+$lang["error-resolution-zero"] = 'エラー：元の画像の幅／高さがゼロに設定されています。';
+$lang["error-preview-missing"] = 'エラー：プレビュー画像を見つけることができません';

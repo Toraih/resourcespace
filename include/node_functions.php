@@ -1103,6 +1103,13 @@ function add_node_keyword_mappings(array $node, $partial_index = false, bool $is
         db_begin_transaction("add_node_keyword_mappings");
     }
     foreach ($translations as $translation) {
+        
+        // Strip html if present so only valid indexable keywords are kept
+        if ($field_data['type'] == 8 && $translation != strip_tags($translation)) {
+            $is_html = true;
+            $translation = strip_tags($translation, '<a>');
+        }
+
         // Only index the first 500 characters
         $translation = mb_substr($translation, 0, $node_keyword_index_chars);
 
@@ -1328,7 +1335,7 @@ function add_resource_nodes_multi($resources = array(), $nodes = array(), $check
         $resource_node_values = ltrim($resource_node_values, ',');
 
         if ($resource_node_values !== '') {
-            ps_query("INSERT INTO resource_node (resource, node) VALUES {$resource_node_values} ON DUPLICATE KEY UPDATE hit_count=hit_count", $sql_params);
+            ps_query("INSERT IGNORE INTO resource_node(`resource`, node) VALUES {$resource_node_values};", $sql_params);
         }
     }
     return true;

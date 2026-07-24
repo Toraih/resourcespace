@@ -81,3 +81,7 @@ $lang["cropper_preset_sizes"] = 'পূর্বনির্ধারিত আ�
 $lang["page-title_transform_collection_transform"] = 'রিসোর্স রূপান্তর করুন';
 $lang["page-title_transform_crop"] = 'কৃষি সম্পদ';
 $lang["page-title_transform_setup"] = 'ট্রান্সফর্ম প্লাগইন সেটআপ করুন';
+$lang["use_filename_as_title"] = 'শিরোনাম হিসেবে ফাইলের নাম ব্যবহার করুন';
+
+$lang["error-resolution-zero"] = 'ত্রুটি: মূল চিত্রের গণনা করা প্রস্থ/উচ্চতা শূন্য।';
+$lang["error-preview-missing"] = 'ত্রুটি: প্রিভিউ চিত্র খুঁজে পাওয়া যায়নি';

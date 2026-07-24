@@ -3,7 +3,7 @@
 define('RESOURCESPACE_BASE_PATH', dirname(__DIR__));
 
 // current upgrade level of ResourceSpace (used for migration scripts, will set sysvar using this if not already defined)
-define('SYSTEM_UPGRADE_LEVEL', 29);
+define('SYSTEM_UPGRADE_LEVEL', 30);
 
 // PHP VERSION AND MINIMUM SUPPORTED
 if (!defined('PHP_VERSION_ID')) {
@@ -11,7 +11,7 @@ if (!defined('PHP_VERSION_ID')) {
     $version = explode('.', PHP_VERSION);
     define('PHP_VERSION_ID', ($version[0] * 10000 + $version[1] * 100 + $version[2]));
 }
-define('PHP_VERSION_SUPPORTED', 70400); // 7.4.0 is the minimum version supported
+define('PHP_VERSION_SUPPORTED', 80200); // 8.2.0 is the minimum version supported
 
 // ------------------------- FIELD TYPES -------------------------
 
@@ -200,15 +200,9 @@ define('LINK_CARET', '<i aria-hidden="true" class="icon-chevron-right"></i>&nbsp
 define('LINK_CARET_BACK', '<i aria-hidden="true" class="icon-chevron-left"></i>&nbsp;');
 define('LINK_PLUS', '<i aria-hidden="true" class="icon-plus"></i>&nbsp;');
 define('LINK_PLUS_CIRCLE', '<i aria-hidden="true" class="icon-circle-plus"></i>&nbsp;');
-define('LINK_CHEVRON_RIGHT', '<i aria-hidden="true" class="icon-chevron-right"></i>&nbsp;');
+define('LINK_CHEVRON_RIGHT', '<i aria-hidden="true" class="icon-chevron-right"></i>');
 define('UPLOAD_ICON', '<i aria-hidden="true" class="icon-upload"></i>&nbsp;');
 define('CONTRIBUTIONS_ICON', '<i aria-hidden="true" class="icon-user-round-plus"></i>&nbsp;');
-define('DASH_ICON', '<i aria-hidden="true" class="icon-layout-dashboard"></i>&nbsp;');
-define('FEATURED_COLLECTION_ICON', '<i aria-hidden="true" class="icon-folder"></i>&nbsp;');
-define('RECENT_ICON', '<i aria-hidden="true" class="icon-clock"></i>&nbsp;');
-define('HELP_ICON', '<i aria-hidden="true" class="icon-book-marked"></i>&nbsp;');
-define('HOME_ICON', '<i aria-hidden="true" class="icon-house"></i>&nbsp;');
-define('SEARCH_ICON', '<i class="icon-search" aria-hidden="true"></i>&nbsp;');
 define('ICON_EDIT', '<i class="icon-pencil" aria-hidden="true"></i>&nbsp;');
 define('ICON_REMOVE', '<i class="icon-circle-minus" aria-hidden="true"></i>&nbsp;');
 define('ICON_FOLDER', '<i class="icon-folder" aria-hidden="true"></i>&nbsp;');
@@ -374,6 +368,7 @@ $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS = array(
     "most_recent_image" => 20,
     "manual" => 100,
 );
+define("THEME_IMAGES_NUMBER", 3);
 $COLLECTION_PUBLIC_TYPES = array(COLLECTION_TYPE_PUBLIC, COLLECTION_TYPE_FEATURED);
 
 // ----------------------------------------------
@@ -427,8 +422,6 @@ $keyboard_navigation_prev_page = 188;
 $keyboard_navigation_next_page = 190;
 # view all results, '/'
 $keyboard_navigation_all_results = 191;
-# toggle thumbnails in collections frame, 't'
-$keyboard_navigation_toggle_thumbnails = 84;
 # view all resources from current collection, 'v'
 $keyboard_navigation_view_all = 86;
 # zoom to/from preview, default 'z'
@@ -775,7 +768,6 @@ const SENSITIVE_VARIABLE_NAMES = [
     'ldapauth',
     'tms_link_user',
     'tms_link_password',
-    'wordpress_sso_secret',
     'youtube_publish_username',
     'youtube_publish_password',
     'vimeo_publish_client_id',
@@ -892,23 +884,13 @@ $language_normalize_mapping = [
     "sv" => Normalizer::NFC,
 ];
 
-const API_ISSUE_VALID_DESTINATIONS = [
-    "linkrui" => [
-        "name" => "LinkrUI",
-        "url" => "https://resourcespace.linkrui.com/saml",
-        "stateparam" => "state",
-    ],
-];
-
 // Stream wrappers not needed by ResourceSpace, to unregister during boot.php to improve security.
 const UNREGISTER_WRAPPERS = ['ftp','ftps', 'phar'];
-
-const COLLECTION_FRAME_HEIGHT = 153;
 
 // Default lifetime in days of a temporary download file created by the job queue. After this time it will be deleted by another job
 const DOWNLOAD_FILE_LIFETIME = 14;
 
-$max_collection_thumbs = 150;
+$max_collection_thumbs = 100;
 
 // Define languages available
 $languages["en"] = "International English";
@@ -916,6 +898,7 @@ $languages["en-US"] = "American English";
 $languages["ar"] = "العربية";
 $languages["id"] = "Bahasa Indonesia"; # Indonesian
 $languages["be"] = "беларуская мова"; # Belarusian
+$languages["bg"] = "Български"; # Bulgarian
 $languages["bn"] = "বাংলা"; # Bengali
 $languages["ca"] = "Català"; # Catalan
 $languages["cs"] = "čeština"; # Czech
@@ -933,6 +916,7 @@ $languages["hr"] = "Hrvatski"; # Croatian
 $languages["it"] = "Italiano"; # Italian
 $languages["jp"] = "日本語"; # Japanese
 $languages["ko"] = "한국어"; # Korean
+$languages["ku"] = "کوردی"; # Kurdish
 $languages["ms"] = "Bahasa Melayu"; # Malay
 $languages["nl"] = "Nederlands"; # Dutch
 $languages["no"] = "Norsk"; # Norwegian
@@ -953,6 +937,7 @@ $languages["uk"] = "українська мова"; # Ukranian
 $languages["ur"] = "اُردُو"; # Urdu
 $languages["vi"] = "Tiếng Việt"; # Vietnamese
 $languages["zh-CN"] = "简体字"; # Simplified Chinese
+$languages["zh-TW"] = "繁體中文"; # Traditional Chinese
 
 # English stop words
 $noadd = array("", "a","the","this","then","another","is","with","in","and","where","how","on","of","to", "from", "at", "for", "-", "by", "be");

@@ -97,8 +97,8 @@ if (getval('loginas', '') != '') {
     $_POST['userkey'] = hash_hmac("sha256", "login_as_user" . $user["username"] . date("Ymd"), $scramble_key, true);
     $_POST[$CSRF_token_identifier] = generateCSRFToken($usersession, 'autologin');
 
-    hook('impersonateuser', "", [$user['ref']]);
-
+    $derived_key = hash_hmac('sha256', $userdata[0]['password'], $scramble_key);
+    rs_setcookie('user_impersonation', json_encode(['ref' => $userref, 'sign' => hash_hmac("sha256", $userref, $derived_key)]), 1, "/", "", false, true);
     include '../../login.php';
     exit();
 }
@@ -492,7 +492,7 @@ if (getval('loginas', '') != '') {
                 <div class="Question">
                     <label><?php echo escape($lang["login"])?></label>
                     <div class="Fixed">
-                        <a href="<?php echo $baseurl_short?>pages/team/team_user_edit.php?ref=<?php echo $ref?>&loginas=true">
+                        <a href="<?php echo $baseurl_short?>pages/team/team_user_edit.php?ref=<?php echo escape($ref); ?>&loginas=true">
                             <?php echo LINK_CARET . escape($lang["clicktologinasthisuser"])?>
                         </a>
                     </div>

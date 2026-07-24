@@ -81,3 +81,7 @@ $lang["cropper_preset_sizes"] = 'Папярэдне вызначаныя пам�
 $lang["page-title_transform_collection_transform"] = 'Пераўтварыць рэсурс';
 $lang["page-title_transform_crop"] = 'Абрэзць рэсурс';
 $lang["page-title_transform_setup"] = 'Наладка плагіна трансфармацыі';
+$lang["use_filename_as_title"] = 'Выкарыстоўваць імя файла ў якасці назвы';
+
+$lang["error-resolution-zero"] = 'Памылка: арыгінальнае малюнак мае вылічаную шырыню/вышыню роўную нулю.';
+$lang["error-preview-missing"] = 'Памылка: немагчыма знайсці папярэдні прагляд малюнка';

@@ -4,6 +4,8 @@
 *
 */
 
+use Montala\ResourceSpace\UserInterfaceComponents\Icon;
+use Montala\ResourceSpace\UserInterfaceComponents\IconSize;
 
 /**
 * Renders the HTML for the provided $field for inclusion in a search form, for example the
@@ -16,9 +18,18 @@
 * $reset    is non-blank if the caller requires the field to be reset
 * @param array $searched_nodes Array of all the searched nodes previously
 */
-function render_search_field($field,$fields,$value="",$autoupdate=false,$class="stdwidth",$forsearchbar=false,$limit_keywords=array(), 
-                             $searched_nodes = array(), $reset="",$simpleSearchFieldsAreHidden=false)
-    {
+function render_search_field(
+    $field,
+    $fields,
+    $value="",
+    $autoupdate=false,
+    $class="stdwidth",
+    $forsearchbar=false,
+    $limit_keywords=array(), 
+    $searched_nodes = array(),
+    $reset="",
+    $simpleSearchFieldsAreHidden=false
+) {
     node_field_options_override($field);
 
     global $auto_order_checkbox, $auto_order_checkbox_case_insensitive, $lang, $category_tree_open, $minyear, $daterange_search, $searchbyday, 
@@ -79,6 +90,7 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
                     $scriptconditions[$condref]["name"]                = $fields[$cf]["name"];
                     $scriptconditions[$condref]['type']                = $fields[$cf]['type'];
                     $scriptconditions[$condref]['display_as_dropdown'] = $fields[$cf]['display_as_dropdown'];
+                    $scriptconditions[$condref]['resource_types']      = $fields[$cf]['resource_types'];
                     # Get the node references of the governing field
                     $scriptconditionnodes = get_nodes($fields[$cf]['ref'], null, (FIELD_TYPE_CATEGORY_TREE == $fields[$cf]['type'] ? true : false));
 
@@ -268,8 +280,8 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
             field<?php echo $field['ref']; ?>status    = jQuery(idname<?php echo $field['ref']; ?>).css('display');
             newfield<?php echo $field['ref']; ?>status = 'none';
 
-            // Assume visible by default
-            field<?php echo $field['ref']; ?>visibility = true;
+            // Assume visibility is false by default
+            field<?php echo $field['ref']; ?>visibility = false;
 
             <?php
             foreach($scriptconditions as $scriptcondition)
@@ -366,10 +378,16 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
                 <?php
                 }?>
 
-                // If no governing node found then disable this governed field
-                if(!field<?php echo $field['ref']; ?>valuefound)
-                {
-                field<?php echo $field['ref']; ?>visibility = false;
+                if (
+                    field<?php echo escape($field['ref']); ?>valuefound
+                    && (<?php echo escape(empty($scriptcondition['resource_types'])) ? 'true' : 'false'; ?>
+                    || <?php if ($forsearchbar) { ?>
+                        !(ssearchhiddenfieldsarray.includes("<?php echo escape("simplesearch_{$scriptcondition['field']}") ?>"))
+                    <?php } else { ?>
+                        (selectedtypes.every(resource_type => (<?php echo encode_js_value($scriptcondition['resource_types']); ?>.split(',')).includes(resource_type)))
+                    <?php } ?> )
+                ) {
+                    field<?php echo escape($field['ref']); ?>visibility = true;
                 }
 
             <?php
@@ -496,8 +514,8 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
         {
         hook("modifysearchfieldtitle");
         ?>
-        <div class="SearchItem" id="simplesearch_<?php echo $field["ref"]; ?>" <?php if (!$displaycondition || $simpleSearchFieldsAreHidden) {?>style="display:none;"<?php } if (strlen($field["tooltip_text"] ?? "" ) >= 1){ echo "title=\"" . escape(lang_or_i18n_get_translated($field["tooltip_text"], "fieldtooltip-")) . "\"";} ?> ><label for="simplesearch_<?php echo $field["ref"]; ?>"><?php echo escape(lang_or_i18n_get_translated($field["title"], "fieldtitle-")) ?></label><br/>
-
+        <div class="field-input" id="simplesearch_<?php echo $field["ref"]; ?>" <?php if (!$displaycondition || $simpleSearchFieldsAreHidden) {?>style="display:none;"<?php } if (strlen($field["tooltip_text"] ?? "" ) >= 1){ echo "title=\"" . escape(lang_or_i18n_get_translated($field["tooltip_text"], "fieldtooltip-")) . "\"";} ?> >
+            <label for="<?php echo escape($id); ?>"><?php echo escape(lang_or_i18n_get_translated($field["title"], "fieldtitle-")); ?></label>
         <?php
         #hook to modify field type in special case. Returning zero (to get a standard text box) doesn't work, so return 1 for type 0, 2 for type 1, etc.
         if(hook("modifyfieldtype")){$fields[$n]["type"]=hook("modifyfieldtype")-1;}
@@ -522,11 +540,43 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
         elseif ((int)$field['field_constraint']==1)
             {
              // parse value for to/from simple search
-            $minmax=explode('|',str_replace("numrange","",$value));
-            ($minmax[0]=='')?$minvalue='':$minvalue=str_replace("neg","-",$minmax[0]);
-            (isset($minmax[1]))?$maxvalue=str_replace("neg","-",$minmax[1]):$maxvalue='';
-            echo escape($lang["from"]); ?><input id="<?php echo escape($name) ?>_min" onChange="jQuery('#<?php echo escape($name) ?>').val('numrange'+jQuery(this).val().replace('-','neg')+'|'+jQuery('#<?php echo escape($name) ?>_max').val().replace('-','neg'));" class="NumberSearchWidth" type="number" value="<?php echo escape($minvalue)?>"><?php echo escape($lang["to"]); ?><input id="<?php echo escape($name) ?>_max" onChange="jQuery('#<?php echo escape($name) ?>').val('numrange'+jQuery('#<?php echo escape($name) ?>_min').val().replace('-','neg')+'|'+jQuery(this).val().replace('-','neg'));" class="NumberSearchWidth" type="number" value="<?php echo escape($maxvalue)?>">
-            <input id="<?php echo escape($name) ?>" name="<?php echo escape($name) ?>" type="hidden" value="<?php echo escape($value) ?>">
+            $minmax = explode('|', str_replace("numrange", "", $value));
+            $minvalue = $minmax[0] == '' ? '' : str_replace("neg", "-", $minmax[0]);
+            $maxvalue = isset($minmax[1]) ? str_replace("neg", "-", $minmax[1]) : '';
+            ?>
+            <span>
+                <span>
+                    <span><?php echo escape($lang["from"]); ?></span>
+                    <input
+                        id="<?php echo escape($name); ?>_min"
+                        class="NumberSearchWidth"
+                        type="number"
+                        value="<?php echo escape($minvalue); ?>"
+                        onchange="jQuery('#<?php echo escape($name); ?>').val(
+                            'numrange'
+                            + jQuery(this).val().replace('-', 'neg')
+                            + '|'
+                            + jQuery('#<?php echo escape($name); ?>_max').val().replace('-', 'neg')
+                        );"
+                    >
+                </span>
+                <span>
+                    <span><?php echo escape($lang["to"]); ?></span>
+                    <input
+                        id="<?php echo escape($name); ?>_max"
+                        class="NumberSearchWidth"
+                        type="number"
+                        value="<?php echo escape($maxvalue); ?>"
+                        onchange="jQuery('#<?php echo escape($name); ?>').val(
+                            'numrange'
+                            + jQuery('#<?php echo escape($name); ?>_min').val().replace('-', 'neg')
+                            + '|'
+                            + jQuery(this).val().replace('-', 'neg')
+                        );"
+                    >
+                </span>
+                <input id="<?php echo escape($name) ?>" name="<?php echo escape($name) ?>" type="hidden" value="<?php echo escape($value) ?>">
+            </span>
             <?php 
             # Add to the clear function so clicking 'clear' clears this box.
              $clear_function.="document.getElementById('".$name."_max').value='';";
@@ -534,21 +584,17 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
              $clear_function.="document.getElementById('".$name."').value='';";
             }
 
-
-
         if ($forsearchbar && $autocomplete_search) { 
-                # Auto-complete search functionality
-                ?></div>
-                <script type="text/javascript">
+            ?>
+            <script type="text/javascript">
+            jQuery(document).ready(function () { 
 
-                jQuery(document).ready(function () { 
+                jQuery("#field_<?php echo escape($field["ref"])?>").autocomplete( { source: "<?php echo $baseurl?>/pages/ajax/autocomplete_search.php?field=<?php echo escape($field["name"]) ?>&fieldref=<?php echo escape($field["ref"]) ?>"} );
+                })
 
-                    jQuery("#field_<?php echo escape($field["ref"])?>").autocomplete( { source: "<?php echo $baseurl?>/pages/ajax/autocomplete_search.php?field=<?php echo escape($field["name"]) ?>&fieldref=<?php echo escape($field["ref"]) ?>"} );
-                    })
-
-                </script>
-                <div class="SearchItem">
-<?php }
+            </script>
+        <?php
+        }
 
         break;
 
@@ -721,12 +767,10 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
         case FIELD_TYPE_DATE: 
         case FIELD_TYPE_DATE_RANGE: 
         $found_year='';$found_month='';$found_day='';$found_start_year='';$found_start_month='';$found_start_day='';$found_end_year='';$found_end_month='';$found_end_day='';
-        if (!$forsearchbar && $daterange_search)
-            {
+        if ($daterange_search) {
+            // Note: the "$clear_function" logic for date range fields is done generically in ResetTicks().
             render_date_range_field($name, $value, true, $autoupdate, array(), $reset);
-            }
-        else
-            {
+        } else {
             $s=explode("|",$value);
             if(is_array($s))
                 {
@@ -735,7 +779,7 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
                 $found_day   = (array_key_exists(2, $s)) ? $s[2] : '';
                 }
             ?>      
-            <select name="<?php echo escape($name);?>-y" id="<?php echo $id?>-y" class="SearchWidth<?php if ($forsearchbar){ echo "Half";} ?>" style="width:120px;" <?php if ($autoupdate) { ?>onChange="UpdateResultCount();"<?php } ?>>
+            <select name="<?php echo escape($name);?>-y" id="<?php echo $id?>-y" class="SearchWidth<?php if ($forsearchbar){ echo "Half";} else { echo " SearchWidthDate";} ?>" <?php if ($autoupdate) { ?>onChange="UpdateResultCount();"<?php } ?>>
               <option value=""><?php echo escape($lang["anyyear"])?></option>
               <?php
               $y=date("Y");
@@ -746,10 +790,7 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
                 }
               ?>
             </select>
-
-            <?php if ($forsearchbar && $searchbyday) { ?><br /><?php } ?>
-
-            <select name="<?php echo escape($name);?>-m" id="<?php echo $id?>-m" class="SearchWidth<?php if ($forsearchbar){ echo "Half SearchWidthRight";} ?>" style="width:120px;" <?php if ($autoupdate) { ?>onChange="UpdateResultCount();"<?php } ?>>
+            <select name="<?php echo escape($name);?>-m" id="<?php echo $id?>-m" class="SearchWidth<?php if ($forsearchbar){ echo "Half SearchWidthRight";} else { echo " SearchWidthDate";}  ?>" <?php if ($autoupdate) { ?>onChange="UpdateResultCount();"<?php } ?>>
               <option value=""><?php echo escape($lang["anymonth"])?></option>
               <?php
               for ($d=1;$d<=12;$d++)
@@ -763,7 +804,7 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
             <?php if (!$forsearchbar || ($forsearchbar && $searchbyday)) 
                 { 
                 ?>
-                <select name="<?php echo escape($name);?>-d" id="<?php echo $id?>-d" class="SearchWidth<?php if ($forsearchbar){ echo "Half";} ?>" style="width:120px;" <?php if ($autoupdate) { ?>onChange="UpdateResultCount();"<?php } ?>>
+                <select name="<?php echo escape($name);?>-d" id="<?php echo $id?>-d" class="SearchWidth<?php if ($forsearchbar){ echo "Half";} else { echo " SearchWidthDate";}  ?>" <?php if ($autoupdate) { ?>onChange="UpdateResultCount();"<?php } ?>>
                   <option value=""><?php echo escape($lang["anyday"])?></option>
                   <?php
                   for ($d=1;$d<=31;$d++)
@@ -843,13 +884,13 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
 
                 // Show previously searched options on the status box
                 $status_box_elements .= "
-                <div id=\"tree_{$field['ref']}_selected_{$n_details['ref']}\" class=\"tree_{$field['ref']}_options_status\">
-                    <span id=\"nodes_searched_{$field['ref']}_statusbox_option_{$n_details['ref']}\">{$n_details['name']}</span><br />
+                <div id=\"searchbar_tree_{$field['ref']}_selected_{$n_details['ref']}\" class=\"searchbar_tree_{$field['ref']}_options_status\">
+                    <span id=\"searchbar_nodes_searched_{$field['ref']}_statusbox_option_{$n_details['ref']}\">{$n_details['name']}</span><br />
                 </div>";
                 }
             ?>
             <div id="field_<?php echo escape($field['name']); ?>">
-                <div id="nodes_searched_<?php echo $field['ref']; ?>_statusbox" class="MiniCategoryBox">
+                <div id="searchbar_nodes_searched_<?php echo $field['ref']; ?>_statusbox" class="MiniCategoryBox">
                     <?php echo $status_box_elements; ?>
                 </div> 
                 <a href="#"
@@ -922,14 +963,8 @@ function render_search_field($field,$fields,$value="",$autoupdate=false,$class="
                 }
 
             include __DIR__ . '/../pages/edit_fields/12.php';
-            // need to adjust the field's name value
-            ?>
-            <script type="text/javascript">
-                jQuery("#field_<?php echo $field['ref']; ?>").attr('name', 'field_<?php echo $field["name"]; ?>');
-            </script>
-            <?php
         break;
-        } ## END CASE
+    }
     ?>
     <div class="clearerleft"> </div>
     </div>
@@ -1262,7 +1297,7 @@ function render_actions(array $collection_data, $top_actions = true, $two_line =
                 </select>
                 <?php } ?>
         <script>
-        function action_onchange_<?php echo $action_selection_id; ?>(v)
+        function action_onchange_<?php echo escape($action_selection_id); ?>(v)
             {
             if(v == '')
                 {
@@ -1396,13 +1431,13 @@ function render_actions(array $collection_data, $top_actions = true, $two_line =
             ?>
 
                 case 'save_search_to_collection':
-                    var option_url = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('url');
+                    var option_url = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('url');
                     CollectionDivLoad(option_url);
                     break;
 
                 case 'save_search_to_dash':
-                    var option_url  = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('url');
-                    var option_link = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('link');
+                    var option_url  = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('url');
+                    var option_link = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('link');
                     
                     // Dash requires to have some search parameters (even if they are the default ones)
                     if((basename(option_link).substr(0, 10)) != 'search.php')
@@ -1416,12 +1451,12 @@ function render_actions(array $collection_data, $top_actions = true, $two_line =
                     break;
 
                 case 'save_search_smart_collection':
-                    var option_url = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('url');
+                    var option_url = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('url');
                     CollectionDivLoad(option_url);
                     break;
 
                 case 'save_search_items_to_collection':
-                    var option_url = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('url');
+                    var option_url = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('url');
                     CollectionDivLoad(option_url);
                     break;
 
@@ -1431,12 +1466,12 @@ function render_actions(array $collection_data, $top_actions = true, $two_line =
                         break;
                         }
 
-                    var option_url = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('url');
+                    var option_url = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('url');
                     CollectionDivLoad(option_url);
                     break;
 
                 case 'copy_collection':
-                    var option_url = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('url');
+                    var option_url = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('url');
                     ModalLoad(option_url, false, true);
                     break;
 
@@ -1488,7 +1523,7 @@ function render_actions(array $collection_data, $top_actions = true, $two_line =
                     case 'hide_collection':
                         var action = 'hidecollection';
                         var collection = <?php echo urlencode($collection_data['ref']);?>;
-                        var mycol = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('mycol');
+                        var mycol = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('mycol');
 
                         jQuery.ajax({
                             type: 'POST',
@@ -1509,9 +1544,9 @@ function render_actions(array $collection_data, $top_actions = true, $two_line =
                 ?>
 
                 default:
-                    var option_url = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('url');
-                    var option_callback = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('callback');
-                    var option_no_ajax = jQuery('#<?php echo $action_selection_id; ?> option:selected').data('no-ajax');
+                    var option_url = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('url');
+                    var option_callback = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('callback');
+                    var option_no_ajax = jQuery('#<?php echo escape($action_selection_id); ?> option:selected').data('no-ajax');
 
                     // If action option has a defined data-callback attribute, then we can call it
                     // IMPORTANT: never allow callback data attribute to be input/saved by user. Only ResourceSpace should
@@ -1538,7 +1573,7 @@ function render_actions(array $collection_data, $top_actions = true, $two_line =
                 }
                 
                 // Go back to no action option
-                jQuery('#<?php echo $action_selection_id; ?> option[value=""]').prop('selected', true);
+                jQuery('#<?php echo escape($action_selection_id); ?> option[value=""]').prop('selected', true);
                 
 
         }
@@ -1672,42 +1707,58 @@ function render_split_text_question($label, $inputs = array(), $additionaltext="
 
 /**
 * render_dropdown_question - Used to display a question with a dropdown selector
+*
+* IMPORTANT: careful when having to handle untrusted data! If you have to pass it to elements, make sure they're encoded
+* accordingly.
 * 
 * @param string $label     Label of question
 * @param string $inputname Name of input field
 * @param array  $options   Array of options (value and text pairs) (eg. array('pixelwidthmin'=>'From','pixelwidthmin'=>'To')
-* @param string $current   The current selected value
+* @param string|list<int> $current The current selected value. For a multiple selector, a list of currently selected values.
 * @param string $extra     Extra attributes used on the selector element
-* @param array  $ctx       Rendering context. Should be used to inject different elements (e.g set the div class, add onchange for select)
-* 
-* @return void
+* @param array{
+*   no_div_class_question?: bool,
+*   div_class?: list<string>,
+*   div_content?: string,
+*   div_extra_attr?: string,
+*   input_class?: string,
+*   onchange?: string,
+* } $ctx Rendering context. Should be used to inject different elements (e.g set the div class, add onchange for select).
 */
-function render_dropdown_question($label, $inputname, $options = array(), $current="", $extra="", array $ctx = array())
+function render_dropdown_question($label, $inputname, $options = array(), string|array $current="", $extra="", array $ctx = array()): void
     {
-    $div_class = array("Question");
+    $input_name_escaped = escape($inputname);
+    $div_class = isset($ctx["no_div_class_question"]) ? [] : ["Question"];
     if(isset($ctx["div_class"]) && is_array($ctx["div_class"]) && !empty($ctx["div_class"]))
         {
         $div_class = array_merge($div_class, $ctx["div_class"]);
         }
+    $div_content = $ctx["div_content"] ?? "";
+    $div_extra_attr = $ctx["div_extra_attr"] ?? "";
     $input_class = isset($ctx["input_class"]) ? $ctx["input_class"] : "stdwidth";
 
     $onchange = (isset($ctx["onchange"]) && trim($ctx["onchange"]) != "" ? trim($ctx["onchange"]) : "");
     $onchange = ($onchange != "" ? sprintf("onchange=\"%s\"", $onchange) : "");
 
     $extra .= " {$onchange}";
+
+    $is_option_selected = static fn (string $option): bool => is_array($current)
+        ? in_array($option, $current)
+        : trim((string) $option) === trim((string) $current);
     ?>
-    <div class="<?php echo escape(implode(" ", $div_class)); ?>">
-        <label><?php echo escape($label); ?></label>
-        <select  name="<?php echo escape($inputname); ?>" class="<?php echo escape($input_class); ?>" id="<?php echo escape($inputname); ?>" <?php echo $extra; ?>>
+    <div class="<?php echo escape(implode(" ", $div_class)); ?>" <?php echo $div_extra_attr; ?>>
+        <label for="<?php echo $input_name_escaped; ?>"><?php echo escape($label); ?></label>
+        <select  name="<?php echo $input_name_escaped; ?>" class="<?php echo escape($input_class); ?>" id="<?php echo $input_name_escaped; ?>" <?php echo $extra; ?>>
         <?php
         foreach ($options as $optionvalue=>$optiontext)
             {
             ?>
-            <option value="<?php echo escape(trim((string)$optionvalue))?>" <?php if (trim((string)$optionvalue)==trim((string)$current)) {?>selected<?php } ?>><?php echo escape(trim((string)$optiontext))?></option>
+            <option value="<?php echo escape(trim((string)$optionvalue))?>" <?php if ($is_option_selected($optionvalue)) {?>selected<?php } ?>><?php echo escape(trim((string)$optiontext))?></option>
             <?php
             }
         ?>
         </select>
+        <?php echo $div_content; ?>
         <div class="clearerleft"></div>
     </div>
     <?php
@@ -2246,7 +2297,12 @@ function display_field($n, $field, $newtab=false,$modal=false)
             }
         elseif($field['type']==FIELD_TYPE_DATE_RANGE && getval("copyfrom","") == "" && getval('metadatatemplate', '') == "" && $check_edit_checksums)
             {
-            $field['node_options'] = get_nodes($field['ref'], null, false);
+            $field['node_options'] = array_filter(
+                get_nodes_by_refs($selected_nodes),
+                function ($node) use ($field) {
+                    return $node['resource_type_field'] == $field['ref'];
+                }
+            );
             $field_nodes = array();
             foreach($selected_nodes as $selected_node)
                 {
@@ -2434,7 +2490,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
         }?>
     <!--  date range search start -->
     <!--- start date -->
-    <div class="stdwidth indent <?php echo escape($name); ?>_range" id="<?php echo escape($name); ?>_start">
+    <div id="<?php echo escape($name); ?>_start" class="stdwidth indent <?php echo escape($name); ?>_range date-range-search">
     <label class="InnerLabel"><?php echo escape($lang["fromdate"])?></label>
 
         <?php
@@ -2449,7 +2505,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
             elseif (!$forsearch  && $edit_autosave)
             {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_start')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
               >
-              <option value=""><?php echo escape($forsearch?$lang["anyday"]:$lang["day"]); ?></option>
+              <option value=""><?php echo escape($lang["day"]); ?></option>
               <?php
               for ($d=1;$d<=31;$d++)
                 {
@@ -2466,7 +2522,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 elseif (!$forsearch  && $edit_autosave)
                     {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_start')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
                     >
-                <option value=""><?php echo escape($forsearch?$lang["anymonth"]:$lang["month"]); ?></option>
+                <option value=""><?php echo escape($lang["month"]); ?></option>
                 <?php
                 for ($d=1;$d<=12;$d++)
                     {
@@ -2487,7 +2543,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 elseif (!$forsearch  && $edit_autosave)
                     {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_start')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
                     >
-                <option value=""><?php echo escape($forsearch?$lang["anymonth"]:$lang["month"]); ?></option>
+                <option value=""><?php echo escape($lang["month"]); ?></option>
                 <?php
                 for ($d=1;$d<=12;$d++)
                     {
@@ -2503,7 +2559,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 elseif (!$forsearch  && $edit_autosave)
                     {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_start')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
                     >
-              <option value=""><?php echo escape($forsearch?$lang["anyday"]:$lang["day"]); ?></option>
+              <option value=""><?php echo escape($lang["day"]); ?></option>
               <?php
               for ($d=1;$d<=31;$d++)
                 {
@@ -2524,7 +2580,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 elseif (!$forsearch  && $edit_autosave)
                 {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_start')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
                 >
-                <option value=""><?php echo escape($forsearch?$lang["anyyear"]:$lang["year"]); ?></option>
+                <option value=""><?php echo escape($lang["year"]); ?></option>
                 <?php
                 $y=date("Y");
                 $y += $maxyear_extends_current;
@@ -2555,7 +2611,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
     <!--- to date -->
     <label  class='daterangelabel'></label>
 
-    <div class="stdwidth indent <?php echo escape($name); ?>_range" id="<?php echo escape($name); ?>_to" >
+    <div id="<?php echo escape($name); ?>_to" class="stdwidth indent <?php echo escape($name); ?>_range date-range-search">
     <label class="InnerLabel"><?php echo escape($lang["todate"])?></label>
     <?php
         if($date_d_m_y)
@@ -2569,7 +2625,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 elseif (!$forsearch  && $edit_autosave)
                     {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_end')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
                     >
-                <option value=""><?php echo escape($forsearch?$lang["anyday"]:$lang["day"]); ?></option>
+                <option value=""><?php echo escape($lang["day"]); ?></option>
                 <?php
                 for ($d=1;$d<=31;$d++)
                     {
@@ -2585,7 +2641,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 elseif (!$forsearch  && $edit_autosave)
                     {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_end')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
                     >
-                <option value=""><?php echo escape($forsearch?$lang["anymonth"]:$lang["month"]); ?></option>
+                <option value=""><?php echo escape($lang["month"]); ?></option>
                 <?php
                 for ($d=1;$d<=12;$d++)
                     {
@@ -2605,7 +2661,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 else
                     {?>onChange="UpdateResultCount();"<?php } ?>
                     >
-                <option value=""><?php echo escape($forsearch?$lang["anymonth"]:$lang["month"]); ?></option>
+                <option value=""><?php echo escape($lang["month"]); ?></option>
                 <?php
                 for ($d=1;$d<=12;$d++)
                     {
@@ -2621,7 +2677,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 elseif (!$forsearch  && $edit_autosave)
                     {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_end')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
                     >
-              <option value=""><?php echo escape($forsearch?$lang["anyday"]:$lang["day"]); ?></option>
+              <option value=""><?php echo escape($lang["day"]); ?></option>
               <?php
               for ($d=1;$d<=31;$d++)
                 {
@@ -2641,7 +2697,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
                 elseif (!$forsearch  && $edit_autosave)
                     {?>onChange="if(sufficientDateParts('<?php echo escape($name); ?>_end')){AutoSave('<?php echo $field["ref"]; ?>');}"<?php } ?>
                     >
-              <option value=""><?php echo escape($forsearch?$lang["anyyear"]:$lang["year"]); ?></option>
+              <option value=""><?php echo escape($lang["year"]); ?></option>
               <?php
               $y=date("Y");
               $y += $maxyear_extends_current;
@@ -2656,7 +2712,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
             else
                 {?>
                 <label class="accessibility-hidden" for="<?php echo escape($name) ?>_end-y"><?php echo escape($lang["year"]); ?></label>
-                <input size="5" name="<?php echo escape($name) ?>_end-y" id="<?php echo escape($name) ?>_end-y" type="text" value="<?php echo $found_end_year ?>"
+                <input size="5" name="<?php echo escape($name) ?>_end-y" id="<?php echo escape($name) ?>_end-y" type="text" value="<?php echo escape($found_end_year) ?>"
                     <?php
 
                     if ($forsearch && $autoupdate)
@@ -2745,7 +2801,7 @@ function render_date_range_field($name,$value,$forsearch=true,$autoupdate=false,
 * @return void
 */
 function renderBreadcrumbs(array $links, $pre_links = '', $class = '')
-    {
+{
     global $lang;
     /*
     NOTE: implemented as seen on themes and search. There is a lot of room for improvement UI wise
@@ -2755,18 +2811,17 @@ function renderBreadcrumbs(array $links, $pre_links = '', $class = '')
     are being created and make sure they all use this function (or any future related functions - like generateBreadcrumb() ).
     */
 
-    if(0 === count($links))
-        {
+    if (count($links) === 0) {
         return;
-        }
+    }
+
     ?>
     <div class="BreadcrumbsBox <?php echo $class; ?>">
         <div class="SearchBreadcrumbs">
         <?php
-        if('' !== $pre_links && $pre_links !== strip_tags($pre_links))
-            {
+        if ($pre_links !== '' && $pre_links !== strip_tags($pre_links)) {
             echo $pre_links . '&nbsp;' . LINK_CHEVRON_RIGHT;
-            }
+        }
 
         for ($i = 0; $i < count($links); $i++) {
             $anchor = isset($links[$i]['href']);
@@ -2776,39 +2831,37 @@ function renderBreadcrumbs(array $links, $pre_links = '', $class = '')
             // search_title_processing.php is building spans with different class names. We need to allow HTML in link titles.
             $title = get_inner_html_from_tag(strip_tags_and_attributes($links[$i]['title']), "p");
 
-            if(0 < $i)
-                {
+            if ($i >= 1) {
                 echo LINK_CHEVRON_RIGHT;
-                }
+            }
                 
-            if ($anchor) { ?>
-                <a href="<?php echo escape($links[$i]['href']); ?>"
+            if ($anchor) {
+                ?><a href="<?php echo escape($links[$i]['href']); ?>"
                     <?php if (isset($links[$i]["menu"]) && $links[$i]["menu"]) { ?>
                         onclick="ModalClose(); return ModalLoad(this, true, true, 'right');"
                     <?php } else { ?>
                         onclick="return CentralSpaceLoad(this, true);"
                     <?php }
-                    echo escape($anchor_attrs); ?>>
-            <?php } ?>
+                    echo escape($anchor_attrs); ?>><?php
+            }
+            
+            ?><span><?php echo $title; ?></span><?php
+            
+            if ($anchor) {
+                ?></a><?php
+            }
 
-            <span><?php echo $title; ?></span>
-
-            <?php if ($anchor) { ?>
-                </a>
-            <?php }
-
-            if (isset($links[$i]['help']))
-                {
+            if (isset($links[$i]['help'])) {
                 render_help_link($links[$i]['help']);
-                }
+            }
 
             if (isset($links[$i]['context_menu'])) {
                 ?>
                 <div>
-                <?php
-                render_top_right_menu_btn($links[$i]['context_menu']);
-                render_featured_collection_context_menu("BreadCrumb{$i}", $links[$i]['context_menu']);
-                ?>
+                    <?php
+                    render_top_right_menu_btn($links[$i]['context_menu']);
+                    render_featured_collection_context_menu("BreadCrumb{$i}", $links[$i]['context_menu']);
+                    ?>
                 </div>
                 <?php
             }
@@ -2817,7 +2870,7 @@ function renderBreadcrumbs(array $links, $pre_links = '', $class = '')
         </div>
     </div>
     <?php
-    }
+}
 
 
 /**
@@ -2835,30 +2888,23 @@ function render_new_featured_collection_cta(string $url, array $ctx)
         return;
         }
 
-    $full_width = (isset($ctx["full_width"]) && $ctx["full_width"]);
     $centralspaceload = (isset($ctx["centralspaceload"]) && $ctx["centralspaceload"]);
-    $html_h2_span_class = (isset($ctx["html_h2_span_class"]) && trim($ctx["html_h2_span_class"]) != "" ? trim($ctx["html_h2_span_class"]) : "icon-circle-plus");
-
-    $html_tile_class = array("FeaturedSimplePanel", "HomePanel", "DashTile", "FeaturedSimpleTile", "FeaturedCallToActionTile");
-    $html_contents_h2_class = array();
-
-    if($full_width)
-        {
-        $html_tile_class[] = "FullWidth";
-        $html_contents_h2_class[] = "MarginZeroAuto";
-        }
+    $tile_icon_class = (isset($ctx["html_h2_span_class"]) && trim($ctx["html_h2_span_class"]) != "" ? trim($ctx["html_h2_span_class"]) : "icon-plus");
 
     $onclick_fn = ($centralspaceload ? "CentralSpaceLoad(this, true);" : "ModalLoad(this, true, true);");
     ?>
-    <div id="FeaturedSimpleTile" class="<?php echo implode(" ", $html_tile_class); ?>">
-        <a href="<?php echo $url; ?>" onclick="return <?php echo $onclick_fn; ?>">
-            <div class="FeaturedSimpleTileContents">
-                <div class="FeaturedSimpleTileText">
-                    <h2 class="<?php echo implode(" ", $html_contents_h2_class); ?>"><span class="<?php echo $html_h2_span_class; ?>"></span></h2>
+    <a class="FeaturedSimpleTile HomePanel" href="<?php echo $url; ?>" onclick="return <?php echo $onclick_fn; ?>">
+        <div id="FeaturedSimpleTile" class="HomePanel featured-tile">
+            <div class="tile-special-content">
+                <div class="tile-special-icon">
+                    <i class="<?php echo escape($tile_icon_class); ?>"></i>
                 </div>
             </div>
-        </a>
-    </div>
+            <div class="tile-desc">
+                <h2><?php echo escape($ctx["h2_text"] ?? ""); ?></h2>
+            </div>
+        </div>
+    </a>
     <?php
     }
 
@@ -3378,89 +3424,6 @@ function render_trash($type, $deletetext,$forjs=false)
         }
     }
 
-/**
-* Renders the browse bar
-*  
-* @return void
-*/ 
-
-function render_browse_bar()
-    {
-    global $lang, $browse_bar_workflow, $enable_themes;
-    $bb_html = '<div id="BrowseBarContainer" style="display:none;">';
-    $bb_html .= '<div id="BrowseBar" class="BrowseBar">';
-    $bb_html .= '<div id="BrowseBarContent" >'; 
-    
-    //Browse row template
-    // script will replace %BROWSE_TYPE%, %BROWSE_EXPAND_CLASS%, %BROWSE_CLASS% %BROWSE_LEVEL%, %BROWSE_EXPAND%, %BROWSE_NAME%, %BROWSE_TEXT%, %BROWSE_ID%
-    $bb_html .= "
-            <div id='BrowseBarTemplate' style='display: none;'>
-            <div class='BrowseBarItem BrowseRowOuter %BROWSE_DROP%' data-browse-id='%BROWSE_ID%' data-browse-parent='%BROWSE_PARENT%'  data-browse-loaded='0' data-browse-status='closed' data-browse-level='%BROWSE_LEVEL%' style='display: none;'>
-                <div class='BrowseRowInner' >
-                    %BROWSE_INDENT%
-                    %BROWSE_EXPAND%
-                    %BROWSE_TEXT%
-                    %BROWSE_REFRESH%
-                </div><!-- End of BrowseRowInner -->
-            </div><!-- End of BrowseRowOuter -->
-            </div><!-- End of BrowseBarTemplate -->
-            ";
-
-    // Add root elements
-    $bb_html .= generate_browse_bar_item("R", $lang['browse_by_tag']);
-    if($enable_themes)
-        {
-        $bb_html .= generate_browse_bar_item("FC", $lang["themes"]);
-        }
-    if(!checkperm('b'))
-        {
-        $bb_html .= generate_browse_bar_item("C", $lang["mycollections"]);
-        }
-        
-    if($browse_bar_workflow)
-        {
-        $bb_html .= generate_browse_bar_item("WF", $lang['browse_by_workflow_state']);
-        }
-
-    $bb_html .= '</div><!-- End of BrowseBarContent -->
-                </div><!-- End of BrowseBar -->
-                </div><!-- End of BrowseBarContainer -->';
-    echo $bb_html;
-    
-    echo '<script>
-        b_loading = new Array();
-        // Expand tree to previous state based on stored cookie
-        jQuery(document).ready(function()
-            {
-            ReloadBrowseBar();
-            });
-        </script>';
-    }
-
-
-/**
-* Generates a root row item for the browse bar
-*  
-* @return string  $html
-*/    
-function generate_browse_bar_item($id, $text)
-    {
-    global $lang;
-    $html = '<div class="BrowseBarItem BrowseRowOuter BrowseBarRoot" data-browse-id="' . $id . '" data-browse-parent="root" data-browse-loaded="0" data-browse-status="closed" data-browse-level="0" >';
-    $html .= '<div class="BrowseRowInner" >';
-    
-    $html .= '<div class="BrowseBarStructure">
-            <a href="#" class="browse_expand browse_closed" onclick="toggleBrowseElements(\'' . $id . '\',false,true);" alt="' . escape($lang["expand"]) . '"></a>
-            </div><!-- End of BrowseBarStructure -->';  
-    $html .= '<div onclick="toggleBrowseElements(\'' . $id . '\',false,true);" class="BrowseBarLink" >' . $text . '</div>';
-    
-    $html .= '<a href="#" class="BrowseRefresh " onclick="toggleBrowseElements(\'' . $id . '\',true, true);" ><i class="icon-refresh-cw"></i></a>';  
-    
-    $html .= "</div><!-- End of BrowseRowInner -->
-            </div><!-- End of BrowseRowOuter -->";
-    return $html;
-    }
-    
 /**
 * Generates a help icon that opens the relevant Knowledge Base article in a modal
 * 
@@ -4007,13 +3970,13 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
                             if($GLOBALS["multiple"] === false)
                                 {
                                 ?>
-                                checkDisplayCondition<?php echo $field['ref']; ?>();
+                                checkDisplayCondition<?php echo (int) $field['ref']; ?>();
                                 <?php
                                 }
                             ?>
                             jQuery('#CentralSpace').on('categoryTreeChanged', function(e,node)
                                 {
-                                checkDisplayCondition<?php echo $field['ref']; ?>();
+                                checkDisplayCondition<?php echo (int) $field['ref']; ?>();
                                 });
                             });
                         </script>
@@ -4032,15 +3995,15 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
                             if($GLOBALS["multiple"] === false)
                                 {
                                 ?>
-                                console.debug('[document.ready] Going to call checkDisplayCondition<?php echo $field['ref']; ?>()');
-                                checkDisplayCondition<?php echo $field['ref']; ?>();
+                                console.debug('[document.ready] Going to call checkDisplayCondition<?php echo (int) $field['ref']; ?>()');
+                                checkDisplayCondition<?php echo (int) $field['ref']; ?>();
                                 <?php
                                 }
                             ?>
                             jQuery('#CentralSpace').on('dynamicKeywordChanged', function(e,node)
                                 {
-                                console.debug('#CentralSpace-on-dynamicKeywordChanged for field #<?php echo $field['ref']; ?>');
-                                checkDisplayCondition<?php echo $field['ref']; ?>();
+                                console.debug('#CentralSpace-on-dynamicKeywordChanged for field #<?php echo (int) $field['ref']; ?>');
+                                checkDisplayCondition<?php echo (int) $field['ref']; ?>();
                                 });
                             });
                         </script>
@@ -4072,13 +4035,13 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
                         if($GLOBALS["multiple"] === false)
                             {
                             ?>
-                            checkDisplayCondition<?php echo $field['ref']; ?>();
+                            checkDisplayCondition<?php echo (int) $field['ref']; ?>();
                             <?php
                             }
                         ?>
                         jQuery('<?php echo $jquery_selector; ?>').change(function ()
                             {
-                            checkDisplayCondition<?php echo $field['ref']; ?>();
+                            checkDisplayCondition<?php echo (int) $field['ref']; ?>();
                             });
                         });
                     </script>
@@ -4094,13 +4057,13 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
                         if($GLOBALS["multiple"] === false)
                             {
                             ?>
-                            checkDisplayCondition<?php echo $field['ref']; ?>();
+                            checkDisplayCondition<?php echo (int) $field['ref']; ?>();
                             <?php
                             }
                         ?>
-                        jQuery('#field_<?php echo $display_check_data[$cf]["ref"]; ?>').change(function ()
+                        jQuery('#field_<?php echo (int) $display_check_data[$cf]["ref"]; ?>').change(function ()
                             {
-                            checkDisplayCondition<?php echo $field['ref']; ?>();
+                            checkDisplayCondition<?php echo (int) $field['ref']; ?>();
                             });
                         });
                     </script>
@@ -4118,9 +4081,9 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
         $question_id = '#question_' . $n . ($GLOBALS["multiple"] === true ? '' : '_' . $resource_ref);
         ?>
         <script type="text/javascript">
-        function checkDisplayCondition<?php echo $field["ref"];?>()
+        function checkDisplayCondition<?php echo (int) $field["ref"];?>()
             {
-            console.debug('(<?php echo str_replace(dirname(__DIR__), '', __FILE__) . ':' . __LINE__?>) checkDisplayCondition<?php echo $field["ref"]; ?>()');
+            console.debug('(<?php echo str_replace(dirname(__DIR__), '', __FILE__) . ':' . __LINE__?>) checkDisplayCondition<?php echo (int) $field["ref"]; ?>()');
 
             if (jQuery('#field_<?php echo (int) $field["ref"]; ?>_displayed').length === 0)
                 {
@@ -4129,11 +4092,11 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
                 }
 
             // Get current display state for governed field ("block" or "none")
-            field<?php echo $field['ref']; ?>status    = jQuery('<?php echo escape($question_id); ?>').css('display');
-            newfield<?php echo $field['ref']; ?>status = 'none';
+            field<?php echo (int) $field['ref']; ?>status    = jQuery('<?php echo escape($question_id); ?>').css('display');
+            newfield<?php echo (int) $field['ref']; ?>status = 'none';
 
             // Assume visible by default
-            field<?php echo $field['ref']; ?>visibility = true;
+            field<?php echo (int) $field['ref']; ?>visibility = true;
             <?php
             foreach($scriptconditions as $scriptcondition)
                 {
@@ -4143,9 +4106,9 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
                     */
                     ?>
 
-                    field<?php echo $field['ref']; ?>valuefound = false;
-                    fieldokvalues<?php echo $scriptcondition['field']; ?> = <?php echo json_encode($scriptcondition['valid']); ?>;
-                    console.debug('[checkDisplayCondition<?php echo $field["ref"]; ?>] fieldokvalues<?php echo $scriptcondition['field']; ?> = %o', fieldokvalues<?php echo $scriptcondition['field']; ?>);
+                    field<?php echo (int) $field['ref']; ?>valuefound = false;
+                    fieldokvalues<?php echo (int) $scriptcondition['field']; ?> = <?php echo json_encode($scriptcondition['valid']); ?>;
+                    console.debug('[checkDisplayCondition<?php echo (int) $field["ref"]; ?>] fieldokvalues<?php echo (int) $scriptcondition['field']; ?> = %o', fieldokvalues<?php echo (int) $scriptcondition['field']; ?>);
 
                     <?php
                     ############################
@@ -4175,16 +4138,16 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
                                 {
                                 if(<?php echo $js_conditional_statement; ?>)
                                     {
-                                    field<?php echo $field['ref']; ?>valuefound = true;
+                                    field<?php echo (int) $field['ref']; ?>valuefound = true;
                                     }
                                 });
 
                         <?php
                         }
                     ?>
-                    if(!field<?php echo $field['ref']; ?>valuefound)
+                    if(!field<?php echo (int) $field['ref']; ?>valuefound)
                         {
-                        field<?php echo $field['ref']; ?>visibility = false;
+                        field<?php echo (int) $field['ref']; ?>visibility = false;
                         }
     <?php
                     } else {
@@ -4195,17 +4158,17 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
                 ?>
 
                 // Is field to be displayed
-                if(field<?php echo $field['ref']; ?>visibility)
+                if(field<?php echo (int) $field['ref']; ?>visibility)
                     {
-                    newfield<?php echo $field['ref']; ?>status = 'block';
+                    newfield<?php echo (int) $field['ref']; ?>status = 'block';
                     }
 
                 // If display status changed then toggle the visibility
-                if(newfield<?php echo $field['ref']; ?>status != field<?php echo $field['ref']; ?>status)
+                if(newfield<?php echo (int) $field['ref']; ?>status != field<?php echo (int) $field['ref']; ?>status)
                     {
-                    jQuery('<?php echo escape($question_id); ?>').css("display", newfield<?php echo $field['ref']; ?>status); 
+                    jQuery('<?php echo escape($question_id); ?>').css("display", newfield<?php echo (int) $field['ref']; ?>status); 
                     // The visibility status (block/none) will be sent to the server in the following field
-                    jQuery('#field_<?php echo $field['ref']; ?>_displayed').attr("value",newfield<?php echo $field['ref']; ?>status);
+                    jQuery('#field_<?php echo (int) $field['ref']; ?>_displayed').attr("value",newfield<?php echo (int) $field['ref']; ?>status);
 
                 <?php
                 // Batch edit mode
@@ -4234,22 +4197,6 @@ function check_display_condition($n, array $field, array $fields, $render_js, in
         }
 
     return $displaycondition;
-    }
-
-
-/**
-* Utility to check if browse bar should be rendered
-*  
-* @return boolean
-*/   
-function has_browsebar()
-    {
-    global $username, $pagename, $loginterms, $not_authenticated_pages, $k, $internal_share_access, $browse_bar;
-    return isset($username)
-    && is_array($not_authenticated_pages) && !in_array($pagename, $not_authenticated_pages)
-    && ('' == $k || $internal_share_access)
-    && $browse_bar;
-    //   && false == $loginterms ?
     }
 
 /**
@@ -4320,6 +4267,9 @@ function display_field_data(array $field,$valueonly=false,$fixedwidth=452)
 
     if ($field['value_filter']!="")
         {
+        if ($field["type"] != FIELD_TYPE_TEXT_BOX_FORMATTED_AND_TINYMCE) {
+            $value = nl2br(escape($value));
+        }
         debug('Calling value_filter...');
         eval(eval_check_signed($field['value_filter']));
         }
@@ -4420,7 +4370,7 @@ function display_field_data(array $field,$valueonly=false,$fixedwidth=452)
         # Do not convert HTML formatted fields (that are already HTML) to HTML. Added check for extracted fields set to 
         # TinyMCE that have not yet been edited.
         if(
-            ($field["type"] != FIELD_TYPE_TEXT_BOX_FORMATTED_AND_TINYMCE && !(in_array($field['type'], $FIXED_LIST_FIELD_TYPES) && is_authenticated()))
+            ($field["type"] != FIELD_TYPE_TEXT_BOX_FORMATTED_AND_TINYMCE && !(in_array($field['type'], $FIXED_LIST_FIELD_TYPES) && is_authenticated()) && (eval_check_signed((string) $field['value_filter'])==''))
             || ($field["type"] == FIELD_TYPE_TEXT_BOX_FORMATTED_AND_TINYMCE && $value == strip_tags($value))
             )
             {
@@ -4851,7 +4801,7 @@ function render_featured_collection_category_selector(int $parent, array $contex
 */
 function render_featured_collections(array $ctx, array $items)
     {
-    global $baseurl_short, $lang, $k, $themes_simple_images, $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS, $themes_simple_view,$show_theme_collection_stats;
+    global $baseurl_short, $lang, $k, $themes_simple_images, $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS,$show_theme_collection_stats;
 
     $is_smart_featured_collection = (isset($ctx["smart"]) ? (bool) $ctx["smart"] : false);
     $general_url_params = (isset($ctx["general_url_params"]) && is_array($ctx["general_url_params"]) ? $ctx["general_url_params"] : array());
@@ -4909,7 +4859,7 @@ function render_featured_collections(array $ctx, array $items)
 
         // Prepare FC images
         $thumbnail_selection_method = $fc["thumbnail_selection_method"];
-        $show_images = ($themes_simple_view && in_array($thumbnail_selection_method, $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS) && $thumbnail_selection_method != $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["no_image"]);
+        $show_images = (in_array($thumbnail_selection_method, $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS) && $thumbnail_selection_method != $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS["no_image"]);
         unset($fc_resources);
         if($themes_simple_images && $show_images)
             {
@@ -4920,7 +4870,7 @@ function render_featured_collections(array $ctx, array $items)
                     "use_thumbnail_selection_method" => !$is_smart_featured_collection,
                     "all_fcs" => $all_fcs,
                 ));
-            $fc_images = generate_featured_collection_image_urls($fc_resources, "pre");
+            $fc_images = generate_featured_collection_image_urls($fc_resources);
 
             if(!empty($fc_images))
                 {
@@ -4936,6 +4886,8 @@ function render_featured_collections(array $ctx, array $items)
                     array(
                         'create'            => 'true',
                         'tltype'            => 'srch',
+                        'tlstyle'           => $fc['thumbnail_selection_method'] 
+                                                    == $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS['most_popular_images'] ? 'multi' : 'thmbs',
                         'title'             => "{$fc['name']}",
                         'freetext'          => 'true',
                         'tile_audience'     => 'false',
@@ -4978,13 +4930,10 @@ function render_featured_collections(array $ctx, array $items)
 
 
         if ($is_featured_collection_category && !$is_smart_featured_collection) {
-            global $enable_theme_category_edit;
-
             $fc_category_url = generateURL("{$baseurl_short}pages/collections_featured.php", $general_url_params, array("parent" => $fc["ref"]));
             $fc_category_has_children = (isset($fc["has_children"]) ? (bool) $fc["has_children"] : false);
 
             $render_ctx["href"] = $fc_category_url;
-            $render_ctx["icon"] = ICON_FOLDER;
             $render_ctx["tools"] = array();
 
             if(checkPermission_dashmanage())
@@ -5048,7 +4997,6 @@ function render_featured_collections(array $ctx, array $items)
                         "smart_fc_parent" => $fc["parent"],
                     ));
                 }
-            $render_ctx["icon"] = ICON_FOLDER;
             $render_ctx["tools"] = array();
             }
             
@@ -5072,23 +5020,20 @@ function render_featured_collections(array $ctx, array $items)
 * @return void
 */
 function render_featured_collection(array $ctx, array $fc)
-    {
+{
     if(empty($fc))
         {
         return;
         }
 
-    global $baseurl_short, $lang, $k, $flag_new_themes, $flag_new_themes_age, $view_title_field;
+    global $baseurl_short, $lang, $flag_new_themes, $flag_new_themes_age, $view_title_field, $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS;
 
     $is_smart_featured_collection = (isset($ctx["smart"]) ? (bool) $ctx["smart"] : false);
-    $full_width = (isset($ctx["full_width"]) && $ctx["full_width"]);
     $general_url_params = (isset($ctx["general_url_params"]) && is_array($ctx["general_url_params"]) ? $ctx["general_url_params"] : array());
     $show_resources_count = (isset($ctx["show_resources_count"]) ? (bool) $ctx["show_resources_count"] : false);
     $reorder = (bool) ($ctx['reorder'] ?? false);
 
-
-    $html_container_class = array("FeaturedSimplePanel", "HomePanel", "DashTile", "FeaturedSimpleTile");
-    $html_container_style = array();
+    $html_container_class = array("FeaturedSimpleTile", "HomePanel");
     $html_container_data_items = [];
 
     // Make featured collection tile sortable
@@ -5098,64 +5043,45 @@ function render_featured_collection(array $ctx, array $fc)
         $html_container_data_items['data-fc-ref'] = $fc['ref'];
         }
 
-
     // Set main featured collection URL (e.g for collections it's the !collection[ID], for categories it's for collection_featured.php)
     $html_fc_a_href = generateURL("{$baseurl_short}pages/search.php", $general_url_params, array("search" => "!collection{$fc["ref"]}"));
     $html_fc_a_href = (isset($ctx["href"]) && trim($ctx["href"]) !== "" ? $ctx["href"] : $html_fc_a_href);
 
-
-    $html_contents_class = array("FeaturedSimpleTileContents");
-    $html_contents_icon = (isset($ctx["icon"]) && trim($ctx["icon"]) != "" ? $ctx["icon"] : ICON_CUBE);
     $fc_display_name = strip_prefix_chars(i18n_get_collection_name($fc),"*");
 
-    $html_contents_h2 = $html_contents_icon . $fc_display_name;
-    $html_contents_h2_style = array();
-    if(!$is_smart_featured_collection && $flag_new_themes && (time() - strtotime((string)$fc["created"])) < (60 * 60 * 24 * $flag_new_themes_age))
-        {
-        $html_contents_h2 .= sprintf(' <div class="NewFlag">%s</div>', escape($lang['newflag']));
-        }
-    if($full_width)
-        {
-        $html_container_class[] = "FullWidth";
-        $html_contents_h2_style[] = "max-width: unset;";
-
-        $action_selection_id = "themes_action_selection{$fc["ref"]}_bottom_{$fc["ref"]}";
-
-        if($show_resources_count && !$is_smart_featured_collection)
-            {
-            $html_contents_h2 .= sprintf(
-                ' <span data-tag="resources_count" data-fc-ref="%s">%s</span>',
-                escape($fc['ref']),
-                escape($lang['counting_resources']));
-            }
-        }
-
+    $html_contents_h2 = $fc_display_name;
+    $counter_html = "";
+    if (
+        !$is_smart_featured_collection 
+        && $flag_new_themes 
+        && (time() - strtotime((string)$fc["created"])) < (60 * 60 * 24 * $flag_new_themes_age)
+        && !$show_resources_count
+    ) {
+        $counter_html = "<p class=\"tile_corner_box\">" . escape($lang['newflag']) . "</p>";
+    } elseif ($show_resources_count && !is_anonymous_user() && !is_authenticated()) {
+        $counter_html = "<p data-tag=\"resources_count\" 
+                            data-fc-ref=\"{$fc['ref']}\"
+                            class=\"tile_corner_box\">" . escape($lang['counting_resources']) . "</p>";
+    }
 
     $theme_images = (isset($ctx["images"]) ? $ctx["images"] : array());
     $theme_images = array_map(
         function($theme_image) use ($view_title_field, $lang){
-            if (!isset($theme_image['ref'])) {return $theme_image;} // Invalid data [t35944]
+            if (!is_array($theme_image)) {
+                return null;
+            }
+            if (!isset($theme_image['ref'])) {
+                return $theme_image; // Invalid data [t35944]
+            }
             $ref = $theme_image['ref'];
             $resource_data = get_resource_data($ref);
-            if ($resource_data===false) {return $theme_image;} // Resource not found
+            if ($resource_data===false) {
+                return $theme_image;
+            }
             $theme_image['alt_text'] = $resource_data['field' . $view_title_field] ?? $lang['resource-1'] . ' ' . $ref;
             return $theme_image;
         }
     , $theme_images);
-    if(!empty($theme_images))
-        {
-        $html_container_class[] = "FeaturedSimpleTileImage";
-
-        if(count($theme_images) == 1)
-            {
-            $alt_string = $theme_images[0]['alt_text'] ?? "";
-            $theme_image_path = $theme_images[0]["path"] ?? "";
-            $html_container_style[] = "background: url({$theme_image_path});";
-            $html_container_style[] = "background-size: cover;";
-            $theme_images = array();
-            }
-        }
-
 
     $html_container_data = '';
     foreach($html_container_data_items as $name => $value)
@@ -5163,76 +5089,112 @@ function render_featured_collection(array $ctx, array $fc)
         $html_container_data .= sprintf(' %s="%s"', $name, escape($value));
         }
 
-    $tools = (isset($ctx["tools"]) && is_array($ctx["tools"]) && !$full_width ? $ctx["tools"] : array());
+    $tools = (isset($ctx["tools"]) && is_array($ctx["tools"]) ? $ctx["tools"] : array());
+
+    if (
+        isset($fc['thumbnail_selection_method']) 
+        && $fc['thumbnail_selection_method'] == $FEATURED_COLLECTION_BG_IMG_SELECTION_OPTIONS['most_popular_images']
+    ) {
+        $theme_images = array_pad($theme_images, 3, null);
+    }
+
+    if (count($theme_images) === 0) {
+        $image_html = "<div class=\"tile-placeholder\">
+                                <div class=\"thumbs-tile-image\"></div>
+                           </div>";
+    } elseif (count($theme_images) === 1) {
+            $image_html = sprintf("<img class=\"thmbs-tile-img\" src=\"%s\" alt=\"%s\">", 
+                        $theme_images[0]['path'], escape($theme_images[0]['alt_text'] ?? ""));
+    } elseif (count($theme_images) >= 3) {
+        if ($theme_images[0] === null) {
+            $image_html = "<div class=\"tile-placeholder\">
+                                <div class=\"thumbs-tile-image\"></div>
+                           </div>
+                           <div class=\"tile-sub-multi\">
+                               <div></div>
+                               <div></div>
+                           </div> 
+                           ";
+        } else {
+            $image_html = sprintf("<img class=\"thmbs-tile-img\" src=\"%s\" alt=\"%s\">", 
+            $theme_images[0]['path'], escape($theme_images[0]['alt_text'] ?? ""));
+            $image_html .= "<div class=\"tile-sub-multi\">";
+            $image_html .= $theme_images[1] === null ? 
+                "<div></div>" : 
+                sprintf("<img class=\"thmbs-tile-img\" src=\"%s\" alt=\"%s\">", $theme_images[1]['path'], escape($theme_images[1]['alt_text'] ?? ""));
+            $image_html .= $theme_images[2] === null ? 
+                "<div></div>" : 
+                sprintf("<img class=\"thmbs-tile-img\" src=\"%s\" alt=\"%s\">", $theme_images[2]['path'], escape($theme_images[2]['alt_text'] ?? ""));
+            $image_html .= "</div>";
+        }
+        
+        $image_html = sprintf("<div class=\"tile-multi\">%s</div>", $image_html);
+    } else {
+        $image_html = "<div class=\"tile-placeholder\">
+                           <div class=\"thumbs-tile-image\"></div>
+                       </div>";
+    }
 
     // DEVELOPER NOTE: anything past this point should be set. All logic is handled above
     ?>
-    <div id="FeaturedSimpleTile_<?php echo md5($fc['ref']); ?>" 
-         class="<?php echo implode(" ", $html_container_class); ?>" 
-         alt="<?php echo escape($alt_string ?? '') ?>"
-         style="<?php echo implode(" ", $html_container_style); ?>" <?php echo $html_container_data; ?> >
-    <?php
-    if (!$full_width) {
-        ?>
-        <div>
-            <a href="<?php echo $html_fc_a_href; ?>" onclick="return CentralSpaceLoad(this, true);" id="featured_tile_<?php echo escape($fc["ref"]); ?>" class="FeaturedSimpleLink">
-                <div id="FeaturedSimpleTileContents_<?php echo escape($fc["ref"]); ?>" class="<?php echo implode(" ", $html_contents_class); ?>">
-                    <h2 style="<?php echo implode(" ", $html_contents_h2_style); ?>"><?php echo $html_contents_h2; ?></h2>
-                <?php
-                foreach($theme_images as $i => $theme_image)
-                    {
-                    ?>
-                    <div class="FeaturedImageTile" style="background-image: url('<?php echo $theme_image['path']; ?>')"></div>
-                    <?php
-                    }
-                    ?>
-                </div>
-            </a>
+    <a class="<?php echo implode(' ', $html_container_class); ?>" 
+        href="<?php echo $html_fc_a_href; ?>" 
+        onclick="return CentralSpaceLoad(this, true);" 
+        id="FeaturedSimpleTile_<?php echo md5($fc['ref']); ?>"
+        <?php echo $html_container_data; ?> >
+        <div 
+            class="HomePanel featured-tile"
+            id="featured_tile_<?php echo md5($fc['ref']); ?>"
+            <?php echo $html_container_data; ?> >
             <?php
-            render_top_right_menu_btn($tools);
+            echo $image_html;
             ?>
+            <div class="tile-desc">
+                <h2><?php echo $html_contents_h2; ?></h2>
+                <?php
+                render_top_right_menu_btn($tools);
+                ?>
+            </div>
+            <?php echo $counter_html; ?>
         </div>
         <?php
         render_featured_collection_context_menu(md5($fc['ref']), $tools);
-    } else if ($full_width && !$is_smart_featured_collection) {
         ?>
-        <a href="<?php echo $html_fc_a_href; ?>" onclick="return CentralSpaceLoad(this, true);" id="featured_tile_<?php echo escape($fc["ref"]); ?>" class="FeaturedSimpleLink">
-            <div id="FeaturedSimpleTileContents_<?php echo escape($fc["ref"]); ?>" class="<?php echo implode(" ", $html_contents_class); ?>">
-                <h2 style="<?php echo implode(" ", $html_contents_h2_style); ?>"><?php echo $html_contents_h2; ?></h2>
-            <?php
-            foreach($theme_images as $i => $theme_image)
-                {
-                ?>
-                <div class="FeaturedImageTile" style="background-image: url('<?php echo $theme_image['path']; ?>')"></div>
-                <?php
-                }
-                ?>
-            </div>
-        </a>
-        <div class="ListTools">
-            <div class="ActionsContainer">
-                <select class="fcollectionactions" id="<?php echo $action_selection_id ?>" data-actions-loaded="0" data-actions-populating="0" data-col-id="<?php echo escape($fc["ref"]);?>" onchange="action_onchange_<?php echo $action_selection_id ?>(this.value);">
-                    <option><?php echo escape($lang["actions-select"]); ?></option>
-                </select>
-            </div>            
-        </div><!-- End of ListTools -->
-        <?php
-    } else {
-        ?>
-        <div>
-            <a href="<?php echo $html_fc_a_href; ?>" onclick="return CentralSpaceLoad(this, true);" id="featured_tile_<?php echo escape($fc["ref"]); ?>" class="FeaturedSimpleLink">
-                <div id="FeaturedSimpleTileContents_<?php echo escape($fc["ref"]); ?>" class="<?php echo implode(" ", $html_contents_class); ?>">
-                    <h2 style="<?php echo implode(" ", $html_contents_h2_style); ?>"><?php echo $html_contents_h2; ?></h2>
-                </div>
-            </a>
-        </div>
+    </a>
+    <script>
+        jQuery(document).ready(function() {
+            let fctilename = "#FeaturedSimpleTile_<?php echo md5($fc["ref"]); ?>";
+            let tilehref; //Used to switch off and on tile link to stop issue clicking on tool bar but opening tile link
+            let tileonclick; //Used to switch off and on tile link to stop issue clicking on tool bar but opening tile link
 
-        <?php
-    }
-    ?>
-    </div><!-- End of FeaturedSimpleTile_<?php echo escape($fc["ref"]); ?>-->
-<?php
-    }
+            let fcactionsid = ".top-right-menu > i";
+
+            jQuery(`${fctilename} ${fcactionsid}, #<?php echo md5($fc['ref']); ?>`).hover(
+                function(e) {
+                    tilehref = jQuery(fctilename).attr("href");
+                    tileonclick = jQuery(fctilename).attr("onclick");
+                    jQuery(fctilename).attr("href", "#");
+                    jQuery(fctilename).attr("onclick", "return false;");
+
+                    jQuery(`a.FeaturedSimpleTile:not(${fctilename})`).css('pointer-events', 'none')
+                },
+                function(e) {
+                    jQuery(fctilename).attr("href", tilehref);
+                    jQuery(fctilename).attr("onclick", tileonclick);
+                    tilehref = '';
+                    tileonclick = '';
+
+                    jQuery(`a.FeaturedSimpleTile:not(${fctilename})`).css('pointer-events', 'initial')
+                }
+            ).mousedown(
+                function(e) {
+                    e.stopPropagation();
+                }
+            );
+        })
+    </script>  
+    <?php
+}
 
 /**
  * Render the top right menu button ellipsis icon.
@@ -5265,7 +5227,8 @@ function render_featured_collection_context_menu(string $id, array $options): vo
     }
 
     ?>
-    <div id="<?php echo escape($id); ?>" class="featured-collection context-menu-container" style="display:none;">
+    <div id="<?php echo escape($id); ?>" class="featured-collection flyout-menu" style="display:none;">
+        <div class="menu-items">
         <?php
         foreach ($options as $option) {
             if(isset($option['custom_onclick']) && trim($option['custom_onclick']) != '') {
@@ -5277,13 +5240,14 @@ function render_featured_collection_context_menu(string $id, array $options): vo
                     : "return CentralSpaceLoad('{$href}', true);";
             }
             ?>
-            <button class="context-menu-row" onclick="<?php echo $onclick; ?>">
+            <div class="menu-item" onclick="<?php echo $onclick; ?>">
                 <i class="<?php echo escape($option['icon']); ?>"></i>
                 <span><?php echo escape($option['text']); ?></span>
-            </button>
+            </div>
             <?php
         }
         ?>
+        </div>
     </div>
     <?php
 }
@@ -5735,10 +5699,8 @@ function render_array_in_table_cells($array)
 * Render the top page error style version
 * 
 * @param string $err_msg Error message
-* 
-* @return void
 */
-function render_top_page_error_style(string $err_msg)
+function render_top_page_error_style(string $err_msg): void
     {
     if(trim($err_msg) === '')
         {
@@ -6889,6 +6851,65 @@ function admin_resource_type_field_option(string $propertyname,string $propertyt
             ?>
             </select>
             <?php
+        } elseif ($propertyname == 'geomapping') {
+            $geo_location_fields = ps_array("SELECT geomapping value FROM resource_type_field WHERE geomapping !=0 ORDER BY geomapping", []);
+            $disabled_options = [];
+            if (!empty($geo_location_fields) && [$currentvalue] != $geo_location_fields) {
+                // At least one other field is using geo mapping
+                if (in_array(FIELD_GEO_LOCATION::both->value, $geo_location_fields)) {
+                    // A field is set to both, no options here except none
+                    $disabled_options = [
+                        FIELD_GEO_LOCATION::both,
+                        FIELD_GEO_LOCATION::latitude,
+                        FIELD_GEO_LOCATION::longitude
+                    ];
+                } else {
+                    // At least one field is lat or long, only allow one of these if not set elsewhere
+                    $disabled_options[] = FIELD_GEO_LOCATION::both;
+                    if (in_array(FIELD_GEO_LOCATION::latitude->value, $geo_location_fields)
+                        && $currentvalue != FIELD_GEO_LOCATION::latitude->value) {
+                        $disabled_options[] = FIELD_GEO_LOCATION::latitude;
+                    }
+                    if (in_array(FIELD_GEO_LOCATION::longitude->value, $geo_location_fields)
+                        && $currentvalue !=FIELD_GEO_LOCATION::longitude->value) {
+                        $disabled_options[] = FIELD_GEO_LOCATION::longitude;
+                    }
+                }
+            }
+            ?>
+            <select 
+                class="stdwidth"
+                id="field_edit_geomapping"
+                name="geomapping"
+                <?php if (count($disabled_options) == 3) {?>
+                    disabled
+                    title="<?php echo escape($lang["disabled-geomapping-title"]);?>"
+                <?php } ?>
+                >
+            <?php 
+            foreach(FIELD_GEO_LOCATION::cases() as $case) {
+                $selected = $case->value === $currentvalue ? 'selected' : '';
+                $disabled = in_array($case, $disabled_options) ? 'disabled' : '';
+                $value = "\"$case->value\" $selected $disabled";
+                ?>
+                <option
+                    value=<?php echo $value; ?>
+                    ><?php echo escape($case->i18n($lang)); ?>
+                </option>
+            <?php }
+            ?>
+            </select>
+            <script>
+                jQuery(document).ready(function()  {
+                    var selectedValue = jQuery('#field_edit_type').val();
+                    var geoSelect = jQuery('#field_edit_<?php echo escape((string) $propertyname); ?>');
+
+                    if (selectedValue !== '<?php echo FIELD_TYPE_TEXT_BOX_SINGLE_LINE; ?>') {
+                        geoSelect.prop('disabled', true).val(0);
+                    }
+                });
+            </script>
+            <?php
         }
         elseif($type==1)
             {
@@ -7768,3 +7789,235 @@ enum ToastNotificationType
     case Error;
 }
 // phpcs:enable
+
+function render_icon_wrapper_component(Icon $name, IconSize $size = IconSize::Default): void
+{
+    $class = [
+        $name->value,
+        "{$size->value}-icon-size",
+    ];
+
+    printf('<i class="%s" aria-hidden="true"></i>', escape(join(' ', $class)));
+}
+
+/**
+ * Render the header's primary navigation. In responsive mode, all the nav links are being overflown.
+ *
+ * @param array{button: Icon, force_overflow?: bool} $ctx Change behaviour based on context (e.g. normal vs responsive)
+ */
+function render_header_links(array $ctx): void
+{
+    global $pagename, $terms_login, $baseurl, $nav2contact_link, $advanced_search_nav, $search_results_link,
+    $enable_themes, $theme_direct_jump, $themes_navlink, $public_collections_top_nav, $mycollections_link, $recent_link,
+    $recent_search_by_days, $recent_search_by_days_default, $recent_search_quantity, $myrequests_link,
+    $mycontributions_link, $research_request, $custom_top_nav, $lang, $search;
+
+    if (
+        $pagename == 'terms'
+        && isset($_SERVER['HTTP_REFERER'])
+        && strpos($_SERVER['HTTP_REFERER'], 'login') !== false
+        && $terms_login
+    ) {
+        return;
+    }
+
+    /**
+     * Nav link list. Each link follows the $custom_top_nav structure for consistency reasons.
+     *
+     * @var list<array{title: string, link: string, modal?: bool}>
+     */
+    $nav_links = [];
+    $contact_us_link = $nav2contact_link ? [['title' => '(lang)contactus', 'link' => "{$baseurl}/pages/contact.php"]] : [];
+
+    if ($advanced_search_nav) {
+        $nav_links[] = [
+            'title' => '(lang)advancedsearch',
+            'link' => "{$baseurl}/pages/search_advanced.php",
+        ];
+    }
+
+    if ($search_results_link) {
+        if (
+            checkperm("s")
+            && (
+                isset($_COOKIE["search_form_submit"])
+                || (isset($_COOKIE["search"]) && strlen($_COOKIE["search"]) > 0)
+                || (isset($search) && strlen($search) > 0 && strpos($search, "!") === false)
+            )
+        ) {
+            $nav_links[] = [
+                'title' => '(lang)searchresults',
+                'link' => "{$baseurl}/pages/search.php",
+            ];
+        } else {
+            $nav_links[] = [
+                'title' => '(lang)searchresults',
+                'link' => '#',
+            ];
+        }
+    }
+
+    if (checkperm("s") && $enable_themes && !$theme_direct_jump && $themes_navlink) {
+        $nav_links[] = [
+            'title' => '(lang)themes',
+            'link' => "{$baseurl}/pages/collections_featured.php",
+        ];
+    }
+
+    if (checkperm("s") && ($public_collections_top_nav)) {
+        $nav_links[] = [
+            'title' => '(lang)publiccollections',
+            'link' => "{$baseurl}/pages/collection_public.php",
+        ];
+    }
+
+    if (checkperm("s") && $mycollections_link && !checkperm("b")) {
+        $nav_links[] = [
+            'title' => '(lang)mycollections',
+            'link' => "{$baseurl}/pages/collection_manage.php",
+        ];
+    }
+
+    if (checkperm("s") && $recent_link) {
+        $recent_url_params = $recent_search_by_days
+            ? [
+                "search" => "",
+                "recentdaylimit" => $recent_search_by_days_default,
+            ]
+            : ["search" => "!last{$recent_search_quantity}"];
+        $recent_url_params["order_by"]  = "resourceid";
+        $recent_url_params["sort"]      = "desc";
+        $recenturl = generateURL("$baseurl/pages/search.php", $recent_url_params);
+
+        $nav_links[] = [
+            'title' => '(lang)recent',
+            'link' => $recenturl,
+        ];
+    }
+
+    if (checkperm("s") && $myrequests_link && checkperm("q")) {
+        $nav_links[] = [
+            'title' => '(lang)myrequests',
+            'link' => "{$baseurl}/pages/requests.php",
+        ];
+    }
+
+    if (checkperm("d") || ($mycontributions_link && checkperm("c"))) {
+        $nav_links[] = [
+            'title' => '(lang)mycontributions',
+            'link' => "{$baseurl}/pages/contribute.php",
+        ];
+    }
+
+    if ($research_request && checkperm("s") && checkperm("q")) {
+        $nav_links[] = [
+            'title' => '(lang)researchrequest',
+            'link' => "{$baseurl}/pages/research_request.php",
+        ];
+    }
+
+    $nav_links = array_merge($nav_links, $custom_top_nav ?? [], $contact_us_link);
+
+    // Group links into primary and overflown. For the responsive mode, all the links will be overflown by design.
+    // (note: the overflow menu logic is handled by the MenuOverlay module in JS)
+    $force_overflow = $ctx['force_overflow'] ?? false;
+    $max_links_to_show = 6;
+    $nav_groupings = !$force_overflow && count($nav_links) > $max_links_to_show
+        ? [array_slice($nav_links, 0, $max_links_to_show), array_slice($nav_links, $max_links_to_show)]
+        : [$nav_links];
+    ?>
+    <nav class="primary-navigation menu" aria-label="<?php echo escape(text('mainmenu')); ?>" data-menu>
+        <ul>
+        <?php
+            foreach ($nav_groupings as $idx => $nav_group_links) {
+                $overflow = $force_overflow ?: $idx === 1;
+                $li_class = '';
+                $role_menuitem = '';
+
+                if ($overflow) {
+                    echo '<li class="menu-overflow"><ul class="menu-panel" data-menu-panel role="menu" hidden>';
+                    $li_class = 'menu-item';
+                    $role_menuitem = ' role="menuitem"';
+                }
+
+                foreach ($nav_group_links as $nav) {
+                    if (!url_starts_with($baseurl, $nav['link'])) {
+                        // External links always open in a new tab
+                        $on_click = '';
+                        $target   = ' target="_blank" rel="noopener noreferrer"';
+                    } else {
+                        if (isset($nav['modal']) && $nav['modal']) {
+                            $on_click = ' onClick="return ModalLoad(this, true);"';
+                            $target   = '';
+                        } elseif (!isset($nav['modal']) || (isset($nav['modal']) && !$nav['modal'])) {
+                            $on_click = ' onClick="return CentralSpaceLoad(this, true);"';
+                            $target   = '';
+                        }
+                    }
+
+                    if (strpos($nav['title'], '(lang)') !== false) {
+                        $custom_top_nav_title = str_replace("(lang)", "", $nav["title"]);
+                        $nav["title"] = $lang[$custom_top_nav_title];
+                    }
+                    ?>
+                    <li class="<?php echo $li_class; ?>">
+                        <a href="<?php echo sanitise_url($nav["link"]); ?>"<?php echo $target . $on_click . $role_menuitem; ?>><?php
+                            echo escape(i18n_get_translated($nav["title"]));
+                        ?></a>
+                    </li>
+                    <?php
+                }
+
+                if ($overflow) {
+                    echo '</ul></li>';
+                }
+            }
+        ?>
+        </ul>
+        <button type="button" class="<?php echo escape($ctx['button']->value); ?>" data-menu-trigger aria-haspopup="menu" aria-expanded="false"></button>
+    </nav>
+    <?php
+}
+
+/**
+ * Helper function for smart featured collections to update $branch_trail with all parent nodes of the selected node
+ * 
+ * @param  int      $node                  Node selected
+ * @param  int      $tree_node_level       Current level of node in tree
+ * @param  array    $field_data            Array of the smart featured collections field data
+ * @param  array    $general_url_params    URL parameters to use with generated href links
+ * @param  array    $branch_trail          Partial array of links to use for renderBreadcrumbs(), only includes the highest level link
+ * 
+ * @return array    $branch_trail          Full array of parent nodes and field links
+ * 
+ */
+function get_smart_fc_branch_trail(int $node, int $tree_node_level, array $field_data, array $general_url_params, array $branch_trail) : array
+{
+    global $baseurl_short;
+
+    $all_node_parents = get_all_ancestors_for_node($node, $tree_node_level);
+    $opened_nodes = array();
+    
+    if (is_array($all_node_parents)) {
+        foreach ($all_node_parents[0] as $p_key => $p_ref) {
+            $opened_nodes[] = $p_ref;
+        }
+
+        foreach (array_reverse($opened_nodes) as $opened_node) {
+            $subnodedata = array();
+            get_node($opened_node, $subnodedata);
+            $extra_trail = array(
+                array(
+                    "title" => i18n_get_translated($subnodedata['name']),
+                    "href"  => generateURL(
+                        "{$baseurl_short}pages/collections_featured.php",
+                        $general_url_params,
+                        array("smart_rtf" => $field_data['ref'], "smart_fc_parent" => $opened_node)
+                    ),
+                )
+            );
+            $branch_trail = array_merge($branch_trail, $extra_trail);
+        }
+    }
+    return $branch_trail;
+}

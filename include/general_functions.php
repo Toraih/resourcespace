@@ -157,6 +157,10 @@ function nicedate($date, $time = false, $wordy = true, $offset_tz = false)
         return "-";
     }
 
+    if ($y == "00" || $y == "0000") {
+        $y = "";
+    }
+
     $month_part = substr($date, $bce_offset + 5, 2);
     if (!is_numeric($month_part)) {
         return $y;
@@ -933,7 +937,7 @@ function allowed_type_mime($allowedtype)
 function send_mail($email, $subject, $message, $from = "", $reply_to = "", $html_template = "", $templatevars = array(), $from_name = "", $cc = "", $bcc = "", $files = array())
 {
     global $applicationname, $use_phpmailer, $email_from, $email_notify, $always_email_copy_admin, $baseurl, $userfullname;
-    global $email_footer, $header_colour_style_override, $userref, $email_rate_limit, $lang, $useremail_rate_limit_active;
+    global $email_footer, $userref, $email_rate_limit, $lang, $useremail_rate_limit_active;
 
     if (defined("RS_TEST_MODE")) {
         return false;
@@ -1188,7 +1192,7 @@ function send_mail($email, $subject, $message, $from = "", $reply_to = "", $html
 function send_mail_phpmailer($email, $subject, $message = "", $from = "", $reply_to = "", $html_template = "", $templatevars = array(), $from_name = "", $cc = "", $bcc = "", $files = array())
 {
     # Include footer
-    global $header_colour_style_override, $email_from;
+    global $email_from;
 
     if (check_email_invalid($email)) {
         return false;
@@ -1296,7 +1300,7 @@ function send_mail_phpmailer($email, $subject, $message = "", $from = "", $reply
                     // Add header image to email if not using template
                     $img_url = get_header_image(true);
                     $img_div_style = "max-height:50px;padding: 5px;";
-                    $img_div_style .= "background: " . ((isset($header_colour_style_override) && $header_colour_style_override != '') ? $header_colour_style_override : "rgba(0, 0, 0, 0.6)") . ";";
+                    $img_div_style .= "background: rgba(0, 0, 0, 0.6);";
                     $setvalues[$placeholder] = '<div style="' . $img_div_style . '"><img src="' . $img_url . '" style="max-height:50px;"  /></div><br /><br />';
                 } elseif ($placeholder == "embed_thumbnail") {
                     # [embed_thumbnail] (requires url in templatevars['thumbnail'])
@@ -1605,7 +1609,7 @@ function rs_quoted_printable_encode_subject($string, $encoding = 'UTF-8')
  * @param  array   $options - array of options to use instead of globals
  * @return void
  */
-function pager($break = true, $scrolltotop = true, $options = array())
+function pager($break = false, $scrolltotop = true, $options = array())
 {
     global $curpage, $url, $url_params, $totalpages, $offset, $per_page, $jumpcount, $pagename, $confirm_page_change, $lang;
 
@@ -1898,10 +1902,15 @@ function is_process_lock($name)
  */
 function set_process_lock($name)
 {
-    file_put_contents(get_temp_dir() . "/process_locks/" . $name, time());
-    // make sure this is editable by the server in case a process lock could be set by different system users
-    chmod(get_temp_dir() . "/process_locks/" . $name, 0777);
-    return true;
+    try {
+        file_put_contents(get_temp_dir() . "/process_locks/" . $name, time());
+        // make sure this is editable by the server in case a process lock could be set by different system users
+        chmod(get_temp_dir() . "/process_locks/" . $name, 0777);
+        return true;
+    } catch (Exception $e) {
+        debug("set_process_lock: Unable to set process lock $name. Reason: {$e->getMessage()}");
+        return false;
+    }
 }
 
 /**
@@ -3038,7 +3047,7 @@ function generateURL(string $url, array $parameters = array(), array $set_params
         $url = $hookurl;
     }
 
-    return $url . '?' . http_build_query($query_string_params);
+    return $url . (!empty($query_string_params) ? '?' . http_build_query($query_string_params) : '');
 }
 
 /**
@@ -3353,14 +3362,12 @@ function enforcePostRequest($ajax)
 }
 
 /**
-* Check if ResourceSpace is up to date or an upgrade is available
+* Check if ResourceSpace is up to date or an upgrade is available and return the version number if an update is avaiable
 *
 * @uses get_sysvar()
 * @uses set_sysvar()
-*
-* @return boolean
 */
-function is_resourcespace_upgrade_available()
+function is_resourcespace_upgrade_available(): false|string
 {
     $cvn_cache = get_sysvar('centralised_version_number');
     $last_cvn_update = get_sysvar('last_cvn_update');
@@ -3435,7 +3442,7 @@ function is_resourcespace_upgrade_available()
         ($product_version_data['major'] < $cvn_data['major'])
         || ($product_version_data['major'] == $cvn_data['major'] && $product_version_data['minor'] < $cvn_data['minor'])
     ) {
-        return true;
+        return $centralised_version_number;
     }
 
     return false;
@@ -4602,6 +4609,28 @@ function is_array_of_pos_or_zero_ints($var): bool
 function is_string_loose($var): bool
 {
     return !is_array($var) && $var == (string)$var;
+}
+
+/**
+ * Input (type) validation helper function for a list of integers (mostly used for IDs). This covers cases when the
+ * submitted data is either sent as an actual list (i.e. myInput[]) or when retrieved from the cookie/query string as a
+ * CSV.
+ *
+ * @param mixed $val User input value to be validated
+ */
+function is_input_list_loose($val): bool
+{
+    return (is_array($val) && array_is_list($val)) || validate_digit_csv($val);
+}
+
+/**
+ * Helper function to check if a value is able to be cast to a float
+ * 
+ * @param mixed $var value to be tested
+ */
+function is_float_loose($var): bool
+{
+    return !is_array($var) && $var == (float)$var;
 }
 
 /**
@@ -6034,8 +6063,9 @@ function allow_unicode_characters(string $text, array $allowlist = []): string
     // \p{L} - any kind of letter from any language
     // \p{N} - any kind of numeric character in any script
     // \s - any kind of invisible character (equivalent to [\p{Z}\h\v])
+    // . - Always allow period as often significant e.g. in identifiers
     return trim_spaces(
-        preg_replace('/[^\p{L}\p{N}\s' . implode('', array_map(preg_quote(...), $allowlist)) . ']+/u', '', $text)
+        preg_replace('/[^\p{L}\p{N}\s.' . implode('', array_map(preg_quote(...), $allowlist)) . ']+/u', '', $text)
     );
 }
 
